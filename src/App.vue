@@ -3,8 +3,9 @@
     <!-- <LibreDWGDemo /> -->
     <!-- <DWGToSVGDemo /> -->
     <!-- <CADViewer /> -->
-     <!-- <DWG2DViewer/> -->
-     <CAD3DViewer/>
+    <!-- <DWG2DViewer/> -->
+    <!-- <CAD3DViewer/> -->
+    <ProcessFlowDiagram/>
   </div>
 </template>
 
@@ -13,8 +14,8 @@
 // import DWGToSVGDemo from './components/DWGToSVGDemo.vue'
 // import CADViewer from './components/CADViewer.vue'
 // import DWG2DViewer from './components/DWG2DViewer.vue'
-import CAD3DViewer from './components/CAD3DViewer.vue'
-
+// import CAD3DViewer from './components/CAD3DViewer.vue'
+import ProcessFlowDiagram from './components/ProcessFlowDiagram.vue'
 </script>
 
 <style>

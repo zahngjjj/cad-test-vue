@@ -53,3 +53,22 @@
 
 ### 8.0  其他流程图方案, 这重点不在于CAD，在于模拟生产
 https://gojs.net/latest/samples/processFlow.html
+
+
+### 9.0 开源图表库方案 mxGraph (现在的 draw.io 核心)
+
+
+
+### 10.0  开源图表库方案 Cytoscape.js - 强大的图形可视化库
+
+
+### 11.0  开源图表库方案 D3.js - 最灵活的数据可视化库
+
+
+### 12.0  Vis.js Network - 专门用于网络图
+
+ 
+### 13.0   Vue Flow - Vue 3 的流程图组件
+
+
+### 14.0  Vue Diagram Editor

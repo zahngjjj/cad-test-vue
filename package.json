@@ -20,11 +20,13 @@
   },
   "dependencies": {
     "@mlightcad/libredwg-web": "^0.1.5",
+    "@vue-flow/background": "^1.3.2",
+    "@vue-flow/controls": "^1.1.2",
+    "@vue-flow/core": "^1.45.0",
     "dxf-parser": "^1.1.2",
     "dxf-writer": "^1.18.4",
     "pinia": "^3.0.3",
     "three": "^0.160.1",
-    "three-dxf-loader": "^5.2.0",
     "vue": "^3.5.18",
     "vue-router": "^4.5.1"
   },
