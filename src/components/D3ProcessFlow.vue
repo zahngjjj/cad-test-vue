@@ -32,7 +32,7 @@ onMounted(() => {
     .attr('y', 0)
     .attr('width', width)
     .attr('height', height)
-    .attr('opacity', 1) // 设置透明度
+    .attr('opacity', 1)
   
   // 添加背景矩形
   svg.append('rect')
@@ -55,8 +55,8 @@ onMounted(() => {
     { source: 'reactor', target: 'pump1' }
   ]
   
-  // 绘制连接线
-  svg.selectAll('.link')
+  // 绘制虚线连接线
+  const linkElements = svg.selectAll('.link')
     .data(links)
     .enter()
     .append('line')
@@ -67,6 +67,25 @@ onMounted(() => {
     .attr('y2', d => nodes.find(n => n.id === d.target)?.y || 0)
     .attr('stroke', '#0066cc')
     .attr('stroke-width', 4)
+    .attr('stroke-dasharray', '10,5') // 设置虚线样式：10px实线，5px空白
+    .attr('stroke-dashoffset', 0) // 初始偏移为0
+  
+  // 添加虚线流动动画
+  function animateDashedLines() {
+    linkElements
+      .transition()
+      .duration(2000) // 2秒完成一个循环
+      .ease(d3.easeLinear)
+      .attr('stroke-dashoffset', -15) // 负值表示向前移动
+      .on('end', function() {
+        // 重置偏移并重新开始动画
+        d3.select(this).attr('stroke-dashoffset', 0)
+        animateDashedLines() // 递归调用，创建无限循环
+      })
+  }
+  
+  // 延迟500ms后开始虚线动画
+  setTimeout(animateDashedLines, 500)
   
   // 创建单个粒子，沿着整个路径移动
   const particle = svg.append('circle')
@@ -75,7 +94,7 @@ onMounted(() => {
     .attr('fill', '#ff4444')
     .attr('stroke', '#ffffff')
     .attr('stroke-width', 2)
-    .attr('cx', nodes[0].x) // 从第一个节点开始
+    .attr('cx', nodes[0].x)
     .attr('cy', nodes[0].y)
   
   // 单次粒子动画，沿着所有连接线移动
@@ -96,28 +115,21 @@ onMounted(() => {
             .attr('cy', targetNode.y)
             .on('end', () => {
               currentIndex++
-              moveToNext() // 移动到下一段
+              moveToNext()
             })
         }
       } else {
-        // 动画完成后，可以选择隐藏粒子或保持在最后位置
-        // particle
-        //   .transition()
-        //   .duration(500)
-        //   .attr('opacity', 0) // 淡出效果
-        //   .remove() // 移除粒子
-
-          particle
-        .transition()
-        .duration(300)
-        .attr('r', 8) // 稍微放大
-        .transition()
-        .duration(300)
-        .attr('r', 6) // 恢复原大小
+        // 动画完成后保持在最后位置并闪烁
+        particle
+          .transition()
+          .duration(300)
+          .attr('r', 8)
+          .transition()
+          .duration(300)
+          .attr('r', 6)
       }
     }
     
-    // 开始动画
     moveToNext()
   }
   
@@ -193,5 +205,15 @@ onMounted(() => {
 
 .particle {
   filter: drop-shadow(0 0 4px rgba(255, 68, 68, 0.6));
+}
+
+/* 可选：为虚线添加额外的视觉效果 */
+.link {
+  transition: stroke-width 0.3s ease;
+}
+
+.link:hover {
+  stroke-width: 6px;
+  cursor: pointer;
 }
 </style>
