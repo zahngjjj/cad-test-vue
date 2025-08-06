@@ -69,7 +69,7 @@ https://gojs.net/latest/samples/processFlow.html
 
  
 ### 13.0   Vue Flow - Vue 3 的流程图组件
-
+好用 ,但是动画效果欠缺;  可以在 Vue Flow 中嵌入 D3.js 动画层, 实现节点的动画效果, 但是动画效果不能缩放
 
 ### 14.0  Vue Diagram Editor
 
