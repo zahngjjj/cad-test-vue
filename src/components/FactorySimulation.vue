@@ -1,6 +1,6 @@
 <template>
   <div class="factory-simulation">
-    <!-- 控制面板 -->
+    <!-- 增强控制面板 -->
     <div class="control-panel">
       <div class="control-section">
         <h3>🏭 生产控制</h3>
@@ -25,6 +25,57 @@
         </button>
       </div>
       
+      <div class="control-section">
+        <h3>📍 GPS定位控制</h3>
+        <div class="gps-controls">
+          <select v-model="selectedCartId" class="cart-selector">
+            <option value="">选择小车</option>
+            <option v-for="cart in enhancedCarts" :key="cart.id" :value="cart.id">
+              小车 {{ cart.id }} ({{ cart.isOnline ? '在线' : '离线' }})
+            </option>
+          </select>
+          
+          <div class="coordinate-inputs">
+            <input 
+              v-model.number="targetLatitude" 
+              type="number" 
+              step="0.000001" 
+              placeholder="纬度"
+              class="coord-input"
+            >
+            <input 
+              v-model.number="targetLongitude" 
+              type="number" 
+              step="0.000001" 
+              placeholder="经度"
+              class="coord-input"
+            >
+            <input 
+              v-model="targetDestination" 
+              type="text" 
+              placeholder="目的地名称"
+              class="dest-input"
+            >
+          </div>
+          
+          <button 
+            @click="sendGpsCommand" 
+            :disabled="!selectedCartId || !targetLatitude || !targetLongitude"
+            class="btn-gps"
+          >
+            📍 发送GPS指令
+          </button>
+          
+          <button 
+            @click="toggleCartStatus" 
+            :disabled="!selectedCartId"
+            class="btn-toggle"
+          >
+            🔄 切换在线状态
+          </button>
+        </div>
+      </div>
+      
       <div class="status-section">
         <h3>📊 实时状态</h3>
         <div class="status-grid">
@@ -45,6 +96,32 @@
           <div class="status-item">
             <span class="label">完成订单:</span>
             <span class="value">{{ completedOrders }}</span>
+          </div>
+        </div>
+      </div>
+      
+      <div class="status-section">
+        <h3>📊 实时GPS状态</h3>
+        <div class="gps-status-grid">
+          <div v-for="cart in enhancedCarts" :key="cart.id" class="cart-status">
+            <div class="cart-header">
+              <span class="cart-name">🚛 {{ cart.id }}</span>
+              <span :class="['online-status', cart.isOnline ? 'online' : 'offline']">
+                {{ cart.isOnline ? '在线' : '离线' }}
+              </span>
+            </div>
+            <div class="gps-info">
+              <div class="gps-coords">📍 {{ cart.latitude.toFixed(6) }}, {{ cart.longitude.toFixed(6) }}</div>
+              <div class="gps-details">
+                <span>速度: {{ cart.speed.toFixed(1) }} km/h</span>
+                <span>方向: {{ cart.heading.toFixed(0) }}°</span>
+                <span>精度: ±{{ cart.gpsAccuracy.toFixed(1) }}m</span>
+              </div>
+              <div class="cart-status-info">
+                <span>状态: {{ getStatusText(cart.status) }}</span>
+                <span v-if="cart.destination">目标: {{ cart.destination }}</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -76,7 +153,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, reactive } from 'vue'
+import { ref, onMounted, reactive, onUnmounted } from 'vue'
 import * as d3 from 'd3'
 // 添加背景图片导入
 import bgImage from '../static/image/bg.png'
@@ -223,6 +300,12 @@ class ProductionOrder {
 let svg: any
 let animationFrame: number
 let orderIdCounter = 1
+
+// GPS控制相关状态
+const selectedCartId = ref('')
+const targetLatitude = ref<number>()
+const targetLongitude = ref<number>()
+const targetDestination = ref('')
 
 // 初始化工厂布局
 function initializeFactory() {
@@ -533,15 +616,21 @@ function assignOrderToCart(order: ProductionOrder, cart: FactoryCart) {
 // 控制函数
 function startProduction() {
   isProducing.value = true
-  animationLoop()
+  locationWS.connect()
+  enhancedAnimationLoop()
 }
 
 function stopProduction() {
   isProducing.value = false
+  locationWS.disconnect()
   if (animationFrame) {
     cancelAnimationFrame(animationFrame)
   }
 }
+
+
+
+
 
 function addOrder() {
   const products = ['产品A', '产品B', '产品C']
@@ -581,9 +670,575 @@ function recallAllCarts() {
   })
 }
 
+// 发送GPS指令
+function sendGpsCommand() {
+  if (selectedCartId.value && targetLatitude.value && targetLongitude.value) {
+    moveCartToGpsLocation(
+      selectedCartId.value, 
+      targetLatitude.value, 
+      targetLongitude.value, 
+      targetDestination.value || '目标位置'
+    )
+    
+    // 清空输入
+    targetLatitude.value = undefined
+    targetLongitude.value = undefined
+    targetDestination.value = ''
+  }
+}
+
+// 切换小车状态
+function toggleCartStatus() {
+  if (selectedCartId.value) {
+    toggleCartOnlineStatus(selectedCartId.value)
+  }
+}
+
+// 获取状态文本
+function getStatusText(status: string): string {
+  const statusMap = {
+    idle: '空闲',
+    moving: '移动中',
+    loading: '装载中',
+    unloading: '卸载中',
+    arrived: '已到达'
+  }
+  return statusMap[status] || status
+}
+
+// GPS定位系统配置
+const gpsConfig = {
+  // 工厂坐标系统（模拟真实GPS坐标）
+  factoryBounds: {
+    minLat: 39.9042,  // 模拟北京某工厂纬度范围
+    maxLat: 39.9142,
+    minLng: 116.4074, // 模拟北京某工厂经度范围
+    maxLng: 116.4174
+  },
+  // SVG坐标系统
+  svgBounds: {
+    width: 1000,
+    height: 400
+  },
+  updateInterval: 1000, // 位置更新间隔（毫秒）
+  precision: 6 // GPS精度（小数位数）
+}
+
+// 实时定位数据结构
+interface LocationData {
+  cartId: string
+  timestamp: number
+  latitude: number
+  longitude: number
+  speed: number // km/h
+  heading: number // 方向角度 0-360
+  accuracy: number // 精度（米）
+  status: 'idle' | 'moving' | 'loading' | 'unloading'
+  orderId?: string
+  destination?: {
+    latitude: number
+    longitude: number
+    name: string
+  }
+}
+
+// 路径点数据结构
+interface PathPoint {
+  latitude: number
+  longitude: number
+  x: number
+  y: number
+  timestamp: number
+  estimatedArrival?: number
+}
+
+// 增强的小车类
+class EnhancedFactoryCart extends FactoryCart {
+  // GPS相关属性
+  latitude: number = 0
+  longitude: number = 0
+  gpsAccuracy: number = 5
+  heading: number = 0
+  speed: number = 0 // km/h
+  
+  // 路径规划
+  plannedPath: PathPoint[] = []
+  currentPathIndex: number = 0
+  
+  // 实时状态
+  lastUpdateTime: number = 0
+  isOnline: boolean = true
+  batteryLevel: number = 100
+  
+  constructor(id: string, startPosition: {x: number, y: number}) {
+    super(id, startPosition)
+    
+    // 初始化GPS坐标
+    const gpsCoord = svgToGps(startPosition.x, startPosition.y)
+    this.latitude = gpsCoord.latitude
+    this.longitude = gpsCoord.longitude
+    this.lastUpdateTime = Date.now()
+  }
+  
+  // 更新GPS位置
+  updateGpsLocation(locationData: LocationData) {
+    this.latitude = locationData.latitude
+    this.longitude = locationData.longitude
+    this.speed = locationData.speed
+    this.heading = locationData.heading
+    this.gpsAccuracy = locationData.accuracy
+    this.status = locationData.status
+    this.lastUpdateTime = locationData.timestamp
+    
+    // 转换为SVG坐标
+    const svgCoord = gpsToSvg(this.latitude, this.longitude)
+    this.x = svgCoord.x
+    this.y = svgCoord.y
+  }
+  
+  // 设置目标位置（GPS坐标）
+  setGpsDestination(latitude: number, longitude: number, destinationName: string) {
+    this.destination = destinationName
+    
+    // 生成路径规划
+    this.plannedPath = generateGpsPath(
+      this.latitude, this.longitude,
+      latitude, longitude
+    )
+    this.currentPathIndex = 0
+    this.status = 'moving'
+  }
+  
+  // 沿GPS路径移动
+  moveAlongGpsPath(): boolean {
+    if (this.currentPathIndex < this.plannedPath.length) {
+      const targetPoint = this.plannedPath[this.currentPathIndex]
+      
+      // 计算到目标点的距离
+      const distance = calculateGpsDistance(
+        this.latitude, this.longitude,
+        targetPoint.latitude, targetPoint.longitude
+      )
+      
+      // 如果距离很近，移动到下一个路径点
+      if (distance < 0.00001) { // 约1米精度
+        this.currentPathIndex++
+        return this.currentPathIndex < this.plannedPath.length
+      }
+      
+      // 平滑移动到目标点
+      const moveSpeed = 0.00001 // GPS坐标移动速度
+      const deltaLat = targetPoint.latitude - this.latitude
+      const deltaLng = targetPoint.longitude - this.longitude
+      const totalDistance = Math.sqrt(deltaLat * deltaLat + deltaLng * deltaLng)
+      
+      if (totalDistance > moveSpeed) {
+        this.latitude += (deltaLat / totalDistance) * moveSpeed
+        this.longitude += (deltaLng / totalDistance) * moveSpeed
+      } else {
+        this.latitude = targetPoint.latitude
+        this.longitude = targetPoint.longitude
+      }
+      
+      // 更新SVG坐标
+      const svgCoord = gpsToSvg(this.latitude, this.longitude)
+      this.x = svgCoord.x
+      this.y = svgCoord.y
+      
+      // 计算方向角
+      this.heading = calculateHeading(
+        this.latitude, this.longitude,
+        targetPoint.latitude, targetPoint.longitude
+      )
+      
+      return true
+    }
+    return false
+  }
+}
+
+// 坐标转换函数
+function gpsToSvg(latitude: number, longitude: number): {x: number, y: number} {
+  const { factoryBounds, svgBounds } = gpsConfig
+  
+  const x = ((longitude - factoryBounds.minLng) / (factoryBounds.maxLng - factoryBounds.minLng)) * svgBounds.width
+  const y = ((factoryBounds.maxLat - latitude) / (factoryBounds.maxLat - factoryBounds.minLat)) * svgBounds.height
+  
+  return { x: Math.max(0, Math.min(svgBounds.width, x)), y: Math.max(0, Math.min(svgBounds.height, y)) }
+}
+
+function svgToGps(x: number, y: number): {latitude: number, longitude: number} {
+  const { factoryBounds, svgBounds } = gpsConfig
+  
+  const longitude = factoryBounds.minLng + (x / svgBounds.width) * (factoryBounds.maxLng - factoryBounds.minLng)
+  const latitude = factoryBounds.maxLat - (y / svgBounds.height) * (factoryBounds.maxLat - factoryBounds.minLat)
+  
+  return { 
+    latitude: parseFloat(latitude.toFixed(gpsConfig.precision)), 
+    longitude: parseFloat(longitude.toFixed(gpsConfig.precision)) 
+  }
+}
+
+// GPS距离计算（Haversine公式）
+function calculateGpsDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371e3 // 地球半径（米）
+  const φ1 = lat1 * Math.PI/180
+  const φ2 = lat2 * Math.PI/180
+  const Δφ = (lat2-lat1) * Math.PI/180
+  const Δλ = (lng2-lng1) * Math.PI/180
+
+  const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+          Math.cos(φ1) * Math.cos(φ2) *
+          Math.sin(Δλ/2) * Math.sin(Δλ/2)
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))
+
+  return R * c // 距离（米）
+}
+
+// 计算方向角
+function calculateHeading(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const φ1 = lat1 * Math.PI/180
+  const φ2 = lat2 * Math.PI/180
+  const Δλ = (lng2-lng1) * Math.PI/180
+
+  const y = Math.sin(Δλ) * Math.cos(φ2)
+  const x = Math.cos(φ1)*Math.sin(φ2) - Math.sin(φ1)*Math.cos(φ2)*Math.cos(Δλ)
+
+  const θ = Math.atan2(y, x)
+
+  return (θ*180/Math.PI + 360) % 360 // 转换为0-360度
+}
+
+// GPS路径规划（简化版A*算法）
+function generateGpsPath(startLat: number, startLng: number, endLat: number, endLng: number): PathPoint[] {
+  const path: PathPoint[] = []
+  const steps = 10 // 路径分段数
+  
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps
+    const lat = startLat + (endLat - startLat) * t
+    const lng = startLng + (endLng - startLng) * t
+    const svgCoord = gpsToSvg(lat, lng)
+    
+    path.push({
+      latitude: lat,
+      longitude: lng,
+      x: svgCoord.x,
+      y: svgCoord.y,
+      timestamp: Date.now() + i * 1000
+    })
+  }
+  
+  return path
+}
+
+// 模拟实时位置数据
+function simulateLocationData(cartId: string): LocationData {
+  const cart = enhancedCarts.value.find(c => c.id === cartId)
+  if (!cart) throw new Error(`Cart ${cartId} not found`)
+  
+  // 添加GPS噪声模拟真实GPS精度
+  const noise = () => (Math.random() - 0.5) * 0.00001 // ±5米精度
+  
+  return {
+    cartId,
+    timestamp: Date.now(),
+    latitude: cart.latitude + noise(),
+    longitude: cart.longitude + noise(),
+    speed: cart.speed,
+    heading: cart.heading,
+    accuracy: cart.gpsAccuracy + Math.random() * 3, // 3-8米精度
+    status: cart.status as any
+  }
+}
+
+// 增强的小车数组
+const enhancedCarts = ref<EnhancedFactoryCart[]>([])
+
+// 实时位置更新定时器
+let locationUpdateTimer: number
+
+// WebSocket连接（模拟）
+class LocationWebSocket {
+  private callbacks: ((data: LocationData) => void)[] = []
+  private timer: number = 0
+  
+  connect() {
+    console.log('🔗 连接到位置服务...')
+    
+    // 模拟实时数据推送
+    this.timer = setInterval(() => {
+      enhancedCarts.value.forEach(cart => {
+        if (cart.isOnline) {
+          const locationData = simulateLocationData(cart.id)
+          this.callbacks.forEach(callback => callback(locationData))
+        }
+      })
+    }, gpsConfig.updateInterval)
+  }
+  
+  disconnect() {
+    console.log('🔌 断开位置服务连接')
+    clearInterval(this.timer)
+  }
+  
+  onLocationUpdate(callback: (data: LocationData) => void) {
+    this.callbacks.push(callback)
+  }
+  
+  // 发送位置指令
+  sendLocationCommand(cartId: string, latitude: number, longitude: number, destinationName: string) {
+    console.log(`📍 发送位置指令给小车 ${cartId}: ${latitude}, ${longitude} -> ${destinationName}`)
+    
+    const cart = enhancedCarts.value.find(c => c.id === cartId)
+    if (cart) {
+      cart.setGpsDestination(latitude, longitude, destinationName)
+    }
+  }
+}
+
+const locationWS = new LocationWebSocket()
+
+// 修改初始化函数
+function initializeEnhancedCarts() {
+  enhancedCarts.value = []
+  
+  // 创建增强小车
+  for (let i = 0; i < 3; i++) {
+    const parkingSpot = factoryLayout.parkingSpots[i]
+    const cart = new EnhancedFactoryCart(`cart-${i + 1}`, { x: parkingSpot.x, y: parkingSpot.y })
+    
+    // 创建小车的SVG元素（增强版）
+    const cartGroup = svg.append('g')
+      .attr('class', 'enhanced-cart')
+      .attr('id', `cart-${cart.id}`)
+    
+    // 小车主体
+    cartGroup.append('rect')
+      .attr('x', -12)
+      .attr('y', -8)
+      .attr('width', 24)
+      .attr('height', 16)
+      .attr('fill', '#2196f3')
+      .attr('stroke', '#1976d2')
+      .attr('stroke-width', 1)
+      .attr('rx', 2)
+    
+    // GPS精度圆圈
+    cartGroup.append('circle')
+      .attr('class', 'gps-accuracy')
+      .attr('r', 0)
+      .attr('fill', 'rgba(33, 150, 243, 0.2)')
+      .attr('stroke', '#2196f3')
+      .attr('stroke-width', 1)
+      .attr('stroke-dasharray', '3,3')
+    
+    // 方向指示器
+    cartGroup.append('polygon')
+      .attr('class', 'direction-indicator')
+      .attr('points', '0,-15 -5,-10 5,-10')
+      .attr('fill', '#ff4444')
+      .attr('stroke', '#ffffff')
+      .attr('stroke-width', 1)
+    
+    // 小车轮子
+    cartGroup.append('circle')
+      .attr('cx', -8)
+      .attr('cy', 6)
+      .attr('r', 3)
+      .attr('fill', '#333')
+    
+    cartGroup.append('circle')
+      .attr('cx', 8)
+      .attr('cy', 6)
+      .attr('r', 3)
+      .attr('fill', '#333')
+    
+    // 小车编号
+    cartGroup.append('text')
+      .attr('text-anchor', 'middle')
+      .attr('dominant-baseline', 'middle')
+      .attr('font-size', '8px')
+      .attr('fill', 'white')
+      .attr('font-weight', 'bold')
+      .text(i + 1)
+    
+    // GPS坐标显示
+    cartGroup.append('text')
+      .attr('class', 'gps-coords')
+      .attr('x', 0)
+      .attr('y', -20)
+      .attr('text-anchor', 'middle')
+      .attr('font-size', '6px')
+      .attr('fill', '#666')
+      .text(`${cart.latitude.toFixed(6)}, ${cart.longitude.toFixed(6)}`)
+    
+    // 货物指示器
+    cartGroup.append('rect')
+      .attr('class', 'cargo-indicator')
+      .attr('x', -6)
+      .attr('y', -12)
+      .attr('width', 12)
+      .attr('height', 6)
+      .attr('fill', '#ff9800')
+      .attr('stroke', '#f57c00')
+      .attr('stroke-width', 1)
+      .attr('rx', 1)
+      .style('display', 'none')
+    
+    cart.element = cartGroup
+    enhancedCarts.value.push(cart)
+  }
+}
+
+// 增强的动画循环
+function enhancedAnimationLoop() {
+  if (!isProducing.value) return
+  
+  // 更新所有增强小车
+  enhancedCarts.value.forEach(cart => {
+    updateEnhancedCartPosition(cart)
+    updateEnhancedCartVisual(cart)
+  })
+  
+  // 处理订单分配
+  processEnhancedOrderAssignment()
+  
+  // 继续动画
+  animationFrame = requestAnimationFrame(enhancedAnimationLoop)
+}
+
+// 更新增强小车位置
+function updateEnhancedCartPosition(cart: EnhancedFactoryCart) {
+  if (cart.status === 'moving' && cart.plannedPath.length > 0) {
+    const stillMoving = cart.moveAlongGpsPath()
+    if (!stillMoving) {
+      cart.status = 'arrived'
+      handleEnhancedCartArrival(cart)
+    }
+  }
+}
+
+// 更新增强小车视觉效果
+function updateEnhancedCartVisual(cart: EnhancedFactoryCart) {
+  if (cart.element) {
+    cart.element.attr('transform', `translate(${cart.x}, ${cart.y})`)
+    
+    // 更新GPS精度圆圈
+    const accuracyRadius = Math.max(3, cart.gpsAccuracy / 2)
+    cart.element.select('.gps-accuracy')
+      .attr('r', accuracyRadius)
+      .style('opacity', cart.isOnline ? 0.6 : 0.2)
+    
+    // 更新方向指示器
+    cart.element.select('.direction-indicator')
+      .attr('transform', `rotate(${cart.heading})`)
+      .style('opacity', cart.speed > 0 ? 1 : 0.3)
+    
+    // 更新GPS坐标显示
+    cart.element.select('.gps-coords')
+      .text(`${cart.latitude.toFixed(6)}, ${cart.longitude.toFixed(6)}`)
+    
+    // 更新货物指示器
+    const cargoIndicator = cart.element.select('.cargo-indicator')
+    cargoIndicator.style('display', cart.cargo ? 'block' : 'none')
+    
+    // 根据状态和在线状态改变小车颜色
+    const cartBody = cart.element.select('rect')
+    const statusColors = {
+      idle: cart.isOnline ? '#2196f3' : '#999',
+      moving: cart.isOnline ? '#4caf50' : '#666',
+      loading: cart.isOnline ? '#ff9800' : '#ccc',
+      unloading: cart.isOnline ? '#f44336' : '#aaa'
+    }
+    cartBody.attr('fill', statusColors[cart.status] || '#2196f3')
+  }
+}
+
+// 处理增强小车到达
+function handleEnhancedCartArrival(cart: EnhancedFactoryCart) {
+  if (cart.cargo && cart.destination) {
+    cart.status = 'unloading'
+    setTimeout(() => {
+      cart.unloadCargo()
+      completedOrders.value++
+      
+      // 返回停车位（使用GPS坐标）
+      const parkingSpot = factoryLayout.parkingSpots.find(spot => 
+        !enhancedCarts.value.some(c => 
+          Math.abs(c.x - spot.x) < 10 && Math.abs(c.y - spot.y) < 10 && c.id !== cart.id
+        )
+      )
+      
+      if (parkingSpot) {
+        const gpsCoord = svgToGps(parkingSpot.x, parkingSpot.y)
+        cart.setGpsDestination(gpsCoord.latitude, gpsCoord.longitude, '停车位')
+      }
+    }, 1000)
+  }
+}
+
+// 处理增强订单分配
+function processEnhancedOrderAssignment() {
+  const idleCarts = enhancedCarts.value.filter(cart => cart.status === 'idle' && cart.isOnline)
+  const unassignedOrders = pendingOrders.value.filter(order => !order.assignedCart)
+  
+  for (let i = 0; i < Math.min(idleCarts.length, unassignedOrders.length); i++) {
+    const cart = idleCarts[i]
+    const order = unassignedOrders[i]
+    
+    assignEnhancedOrderToCart(order, cart)
+  }
+}
+
+// 分配增强订单给小车
+function assignEnhancedOrderToCart(order: ProductionOrder, cart: EnhancedFactoryCart) {
+  order.assignedCart = cart.id
+  cart.loadCargo(order)
+  
+  // 设置GPS目的地
+  const destination = factoryLayout.productionAreas.find(area => area.label === order.destination)
+  if (destination) {
+    const gpsCoord = svgToGps(destination.x + destination.width/2, destination.y + destination.height/2)
+    cart.setGpsDestination(gpsCoord.latitude, gpsCoord.longitude, order.destination)
+    
+    // 通过WebSocket发送位置指令
+    locationWS.sendLocationCommand(cart.id, gpsCoord.latitude, gpsCoord.longitude, order.destination)
+  }
+  
+  // 从待处理订单中移除
+  const index = pendingOrders.value.indexOf(order)
+  if (index > -1) {
+    pendingOrders.value.splice(index, 1)
+  }
+}
+
+// 手动控制小车位置
+function moveCartToGpsLocation(cartId: string, latitude: number, longitude: number, destinationName: string) {
+  locationWS.sendLocationCommand(cartId, latitude, longitude, destinationName)
+}
+
+// 切换小车在线状态
+function toggleCartOnlineStatus(cartId: string) {
+  const cart = enhancedCarts.value.find(c => c.id === cartId)
+  if (cart) {
+    cart.isOnline = !cart.isOnline
+    console.log(`小车 ${cartId} ${cart.isOnline ? '上线' : '离线'}`)
+  }
+}
+
 // 组件挂载
 onMounted(() => {
   initializeFactory()
+  initializeEnhancedCarts()
+  
+  // 设置位置更新监听
+  locationWS.onLocationUpdate((locationData) => {
+    const cart = enhancedCarts.value.find(c => c.id === locationData.cartId)
+    if (cart) {
+      cart.updateGpsLocation(locationData)
+    }
+  })
   
   // 添加一些初始订单
   setTimeout(() => {
@@ -592,169 +1247,17 @@ onMounted(() => {
     }
   }, 1000)
 })
+
+// 组件卸载
+onUnmounted(() => {
+  locationWS.disconnect()
+  if (animationFrame) {
+    cancelAnimationFrame(animationFrame)
+  }
+})
+
 </script>
-
 <style scoped>
-.factory-simulation {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  background: #f5f5f5;
-}
-
-.control-panel {
-  display: flex;
-  gap: 20px;
-  padding: 15px;
-  background: white;
-  border-bottom: 1px solid #ddd;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-
-.control-section {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.control-section h3 {
-  margin: 0;
-  font-size: 14px;
-  color: #333;
-}
-
-.control-section button {
-  padding: 8px 16px;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 12px;
-  transition: all 0.3s;
-}
-
-.btn-primary { background: #2196f3; color: white; }
-.btn-danger { background: #f44336; color: white; }
-.btn-success { background: #4caf50; color: white; }
-.btn-info { background: #00bcd4; color: white; }
-.btn-warning { background: #ff9800; color: white; }
-
-.btn-primary:hover { background: #1976d2; }
-.btn-danger:hover { background: #d32f2f; }
-.btn-success:hover { background: #388e3c; }
-.btn-info:hover { background: #0097a7; }
-.btn-warning:hover { background: #f57c00; }
-
-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.status-section {
-  min-width: 200px;
-}
-
-.status-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 5px;
-}
-
-.status-item {
-  display: flex;
-  justify-content: space-between;
-  font-size: 12px;
-}
-
-.label {
-  color: #666;
-}
-
-.value {
-  font-weight: bold;
-  color: #333;
-}
-
-.status.running {
-  color: #4caf50;
-  font-weight: bold;
-}
-
-.status.stopped {
-  color: #f44336;
-  font-weight: bold;
-}
-
-.factory-layout {
-  display: flex;
-  flex: 1;
-  position: relative;
-}
-
-.factory-svg {
-  flex: 1;
-  background: white;
-  border: 1px solid #ddd;
-}
-
-.order-queue {
-  width: 250px;
-  background: white;
-  border-left: 1px solid #ddd;
-  padding: 15px;
-  overflow-y: auto;
-}
-
-.order-queue h4 {
-  margin: 0 0 15px 0;
-  color: #333;
-}
-
-.order-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.order-item {
-  padding: 10px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 12px;
-  background: #f9f9f9;
-}
-
-.order-item.high {
-  border-color: #ff9800;
-  background: #fff3e0;
-}
-
-.order-item.urgent {
-  border-color: #f44336;
-  background: #ffebee;
-}
-
-.order-id {
-  font-weight: bold;
-  color: #666;
-}
-
-.order-product {
-  display: block;
-  margin: 5px 0;
-  font-weight: bold;
-}
-
-.order-quantity {
-  color: #2196f3;
-}
-
-.order-destination {
-  display: block;
-  margin-top: 5px;
-  color: #4caf50;
-  font-style: italic;
-}
-
 /* SVG 样式 */
 :deep(.cart) {
   cursor: pointer;
@@ -779,5 +1282,140 @@ button:disabled {
 
 :deep(.road:hover) {
   stroke-width: 12;
+}
+
+.gps-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cart-selector {
+  padding: 6px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.coordinate-inputs {
+  display: flex;
+  gap: 5px;
+}
+
+.coord-input, .dest-input {
+  padding: 6px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 11px;
+  width: 80px;
+}
+
+.dest-input {
+  width: 100px;
+}
+
+.btn-gps {
+  background: #4caf50;
+  color: white;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 4px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.btn-toggle {
+  background: #ff9800;
+  color: white;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 4px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.gps-status-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.cart-status {
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background: #f9f9f9;
+  font-size: 10px;
+}
+
+.cart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 5px;
+}
+
+.cart-name {
+  font-weight: bold;
+}
+
+.online-status.online {
+  color: #4caf50;
+  font-weight: bold;
+}
+
+.online-status.offline {
+  color: #f44336;
+  font-weight: bold;
+}
+
+.gps-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.gps-coords {
+  font-family: monospace;
+  color: #2196f3;
+  font-weight: bold;
+}
+
+.gps-details {
+  display: flex;
+  gap: 10px;
+  color: #666;
+}
+
+.cart-status-info {
+  display: flex;
+  gap: 10px;
+  color: #333;
+}
+
+/* SVG增强样式 */
+:deep(.enhanced-cart) {
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+:deep(.enhanced-cart:hover) {
+  filter: drop-shadow(0 0 8px rgba(33, 150, 243, 0.8));
+}
+
+:deep(.gps-accuracy) {
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% { opacity: 0.6; }
+  50% { opacity: 0.3; }
+  100% { opacity: 0.6; }
+}
+
+:deep(.direction-indicator) {
+  transition: transform 0.5s ease;
 }
 </style>
