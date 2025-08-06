@@ -75,3 +75,6 @@ https://gojs.net/latest/samples/processFlow.html
 
 
 有支持移动动画的 ,免费的流程图开源图表库方案吗?
+
+
+### 智慧大屏解决方案 https://v.le5le.com/
