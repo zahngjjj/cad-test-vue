@@ -6,7 +6,8 @@
     <!-- <DWG2DViewer/> -->
     <!-- <CAD3DViewer/> -->
     <!-- <ProcessFlowDiagram/> -->
-    <D3ProcessFlow></D3ProcessFlow>
+    <!-- <D3ProcessFlow></D3ProcessFlow> -->
+    <FactorySimulation></FactorySimulation>
   </div>
 </template>
 
@@ -17,7 +18,9 @@
 // import DWG2DViewer from './components/DWG2DViewer.vue'
 // import CAD3DViewer from './components/CAD3DViewer.vue'
 // import ProcessFlowDiagram from './components/ProcessFlowDiagram.vue'
-import D3ProcessFlow from './components/D3ProcessFlow.vue'
+// import D3ProcessFlow from './components/D3ProcessFlow.vue'
+import FactorySimulation from './components/FactorySimulation.vue'
+
 </script>
 
 <style>
