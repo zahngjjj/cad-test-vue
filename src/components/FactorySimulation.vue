@@ -87,7 +87,7 @@
           </div>
           <div class="status-item">
             <span class="label">活跃小车:</span>
-            <span class="value">{{ activeCarts.length }}/{{ maxCarts }}</span>
+            <span class="value">{{ enhancedCarts.length }}/{{ maxCarts }}</span>
           </div>
           <div class="status-item">
             <span class="label">待处理订单:</span>
@@ -96,6 +96,116 @@
           <div class="status-item">
             <span class="label">完成订单:</span>
             <span class="value">{{ completedOrders }}</span>
+          </div>
+        </div>
+      </div>
+      
+      <div class="control-section">
+        <h3>📦 包装区管理</h3>
+        <div class="packaging-stats">
+          <div class="stat-item">
+            <span class="label">当前库存:</span>
+            <span class="value highlight">{{ packagingCounter }}</span>
+          </div>
+          <div class="stat-item">
+            <span class="label">送货阈值:</span>
+            <span class="value">{{ packagingTarget }}</span>
+          </div>
+          <div class="stat-item">
+            <span class="label">可送货量:</span>
+            <span class="value" :class="packagingCounter >= 100 ? 'text-success' : 'text-warning'">
+              {{ packagingCounter >= 100 ? '✅ 可送货' : '⚠️ 不足' }}
+            </span>
+          </div>
+          <div class="stat-item">
+            <span class="label">总生产量:</span>
+            <span class="value">{{ totalProduced }}</span>
+          </div>
+        </div>
+        
+        <div class="packaging-controls">
+          <button @click="manualDelivery" class="btn-warning">
+            🚚 手动送货
+          </button>
+          <button @click="resetPackagingCounter" class="btn-secondary">
+            🔄 重置计数
+          </button>
+          <button @click="addTestProducts" class="btn-info">
+            📦 添加测试产品
+          </button>
+        </div>
+        
+        <div class="auto-delivery-toggle">
+          <label>
+            <input 
+              type="checkbox" 
+              v-model="autoDeliveryEnabled"
+            >
+            自动送货 (满{{ packagingTarget }}个)
+          </label>
+        </div>
+      </div>
+      
+      <div class="control-section">
+        <h3>⚡ 实时生产控制</h3>
+        <div class="production-controls">
+          <div class="speed-control">
+            <label>生产速度: {{ realTimeProduction.productionSpeed }}x</label>
+            <input 
+              type="range" 
+              min="1" 
+              max="5" 
+              step="1"
+              v-model.number="realTimeProduction.productionSpeed"
+              @input="adjustProductionSpeed(realTimeProduction.productionSpeed)"
+              class="speed-slider"
+            >
+          </div>
+          
+          <div class="production-stats">
+            <div class="stat-item">
+              <span class="label">生产状态:</span>
+              <span :class="['status', realTimeProduction.isRunning ? 'running' : 'stopped']">
+                {{ realTimeProduction.isRunning ? '运行中' : '已停止' }}
+              </span>
+            </div>
+            <div class="stat-item">
+              <span class="label">当前批次:</span>
+              <span class="value">{{ realTimeProduction.currentBatch }}</span>
+            </div>
+            <div class="stat-item">
+              <span class="label">日目标:</span>
+              <span class="value">{{ realTimeProduction.dailyTarget }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="status-section">
+        <h3>🚚 送货记录</h3>
+        <div class="delivery-history">
+          <div v-if="deliveryHistory.length === 0" class="no-deliveries">
+            暂无送货记录
+          </div>
+          <div 
+            v-for="delivery in deliveryHistory.slice(0, 5)" 
+            :key="delivery.id"
+            class="delivery-item"
+            :class="delivery.status"
+          >
+            <div class="delivery-header">
+              <span class="delivery-id">#{{ delivery.id }}</span>
+              <span :class="['delivery-status', delivery.status]">
+                {{ getDeliveryStatusText(delivery.status) }}
+              </span>
+            </div>
+            <div class="delivery-details">
+              <span>数量: {{ delivery.quantity }}个</span>
+              <span>时间: {{ formatTime(delivery.timestamp) }}</span>
+            </div>
+            <div class="delivery-destination">
+              目的地: {{ delivery.destination }}
+            </div>
           </div>
         </div>
       </div>
@@ -170,6 +280,33 @@ const maxCarts = 5
 // 小车和订单数据
 const activeCarts = ref<any[]>([])
 const pendingOrders = ref<any[]>([])
+
+// 包装区生产计数器
+const packagingCounter = ref(0)
+const packagingTarget = ref(1000) // 每1000个触发送货
+const totalProduced = ref(0)
+const autoDeliveryEnabled = ref(true)
+const productionRate = ref(50) // 每分钟生产数量
+const lastDeliveryTime = ref(0)
+
+// 实时生产状态
+const realTimeProduction = ref({
+  isRunning: false,
+  currentBatch: 0,
+  productionSpeed: 1, // 1-5倍速
+  dailyTarget: 5000,
+  todayProduced: 0
+})
+
+// 送货记录
+const deliveryHistory = ref<Array<{
+  id: number
+  timestamp: number
+  quantity: number
+  destination: string
+  status: 'pending' | 'in-transit' | 'delivered'
+  estimatedArrival: number
+}>>([])
 
 // 工厂布局定义
 const factoryLayout = {
@@ -300,6 +437,8 @@ class ProductionOrder {
 let svg: any
 let animationFrame: number
 let orderIdCounter = 1
+let deliveryIdCounter = 1
+let productionInterval: number | null = null
 
 // GPS控制相关状态
 const selectedCartId = ref('')
@@ -618,14 +757,346 @@ function startProduction() {
   isProducing.value = true
   locationWS.connect()
   enhancedAnimationLoop()
+  startRealTimeProduction() // 启动实时生产
 }
 
 function stopProduction() {
   isProducing.value = false
   locationWS.disconnect()
+  stopRealTimeProduction() // 停止实时生产
   if (animationFrame) {
     cancelAnimationFrame(animationFrame)
   }
+}
+
+// 开始实时生产模拟
+function startRealTimeProduction() {
+  if (productionInterval) {
+    clearInterval(productionInterval)
+  }
+  
+  realTimeProduction.value.isRunning = true
+  
+  // 根据生产速度设置间隔时间
+  const baseInterval = 1000 // 基础间隔1秒
+  const interval = baseInterval / realTimeProduction.value.productionSpeed
+  
+  productionInterval = setInterval(() => {
+    if (realTimeProduction.value.isRunning && isProducing.value) {
+      simulateProduction()
+    }
+  }, interval)
+  
+  console.log('🏭 实时生产模拟已启动')
+}
+
+// 停止实时生产模拟
+function stopRealTimeProduction() {
+  if (productionInterval) {
+    clearInterval(productionInterval)
+    productionInterval = null
+  }
+  realTimeProduction.value.isRunning = false
+  console.log('🏭 实时生产模拟已停止')
+}
+
+// 模拟生产过程
+function simulateProduction() {
+  // 模拟生产随机数量的产品（1-5个）
+  const producedCount = Math.floor(Math.random() * 5) + 1
+  
+  // 更新包装区计数器
+  packagingCounter.value += producedCount
+  totalProduced.value += producedCount
+  realTimeProduction.value.todayProduced += producedCount
+  
+  console.log(`📦 包装区新增 ${producedCount} 个产品，当前总数: ${packagingCounter.value}`)
+  
+  // 检查是否达到送货阈值
+  if (autoDeliveryEnabled.value && packagingCounter.value >= packagingTarget.value) {
+    triggerAutoDelivery()
+  }
+  
+  // 更新生产批次
+  realTimeProduction.value.currentBatch = Math.floor(packagingCounter.value / 100)
+}
+
+// 触发自动送货
+function triggerAutoDelivery() {
+  const deliveryQuantity = Math.floor(packagingCounter.value / packagingTarget.value) * packagingTarget.value
+  
+  if (deliveryQuantity > 0) {
+    // 创建送货记录
+    const delivery = {
+      id: deliveryIdCounter++,
+      timestamp: Date.now(),
+      quantity: deliveryQuantity,
+      destination: '客户配送中心',
+      status: 'pending' as const,
+      estimatedArrival: Date.now() + (30 * 60 * 1000) // 预计30分钟送达
+    }
+    
+    deliveryHistory.value.unshift(delivery)
+    
+    // 减少包装区库存
+    packagingCounter.value -= deliveryQuantity
+    lastDeliveryTime.value = Date.now()
+    
+    // 派遣送货小车
+    dispatchDeliveryCart(delivery)
+    
+    console.log(`🚚 自动触发送货: ${deliveryQuantity} 个产品已安排配送`)
+    
+    // 更新送货状态
+    setTimeout(() => {
+      delivery.status = 'in-transit'
+      console.log(`🚛 送货 #${delivery.id} 已出发`)
+    }, 2000)
+    
+    setTimeout(() => {
+      delivery.status = 'delivered'
+      console.log(`✅ 送货 #${delivery.id} 已送达`)
+    }, delivery.estimatedArrival - Date.now())
+  }
+}
+
+// 派遣送货小车
+function dispatchDeliveryCart(delivery: any) {
+  // 寻找空闲小车 - 修改为使用enhancedCarts
+  const availableCart = enhancedCarts.value.find(cart => cart.status === 'idle' && cart.isOnline)
+  
+  if (availableCart) {
+    // 创建送货订单
+    const deliveryOrder = new ProductionOrder(
+      delivery.id,
+      `批量产品 x${delivery.quantity}`,
+      delivery.quantity,
+      '发货区',
+      'urgent'
+    )
+    
+    // 分配给小车 - 使用增强版分配函数
+    assignEnhancedOrderToCart(deliveryOrder, availableCart)
+    
+    console.log(`🚛 小车 ${availableCart.id} 已被派遣执行送货任务 #${delivery.id}`)
+  } else {
+    console.log('⚠️ 暂无可用小车，送货任务已排队等待')
+    // 自动部署新小车（如果可能）
+    if (enhancedCarts.value.length < maxCarts) {
+      // 部署增强小车
+      const availableSpot = factoryLayout.parkingSpots.find(spot => 
+        !enhancedCarts.value.some(c => 
+          Math.abs(c.x - spot.x) < 10 && Math.abs(c.y - spot.y) < 10
+        )
+      )
+      
+      if (availableSpot) {
+        const newCart = new EnhancedFactoryCart(`enhanced-cart-${enhancedCarts.value.length + 1}`, availableSpot)
+        
+        // 创建新小车的SVG元素（增强版）
+        const cartGroup = svg.append('g')
+          .attr('class', 'enhanced-cart')
+          .attr('id', `cart-${newCart.id}`)
+        
+        // 小车主体
+        cartGroup.append('rect')
+          .attr('x', -12)
+          .attr('y', -8)
+          .attr('width', 24)
+          .attr('height', 16)
+          .attr('fill', '#2196f3')
+          .attr('stroke', '#1976d2')
+          .attr('stroke-width', 1)
+          .attr('rx', 2)
+        
+        // GPS精度圆圈
+        cartGroup.append('circle')
+          .attr('class', 'gps-accuracy')
+          .attr('r', 0)
+          .attr('fill', 'rgba(33, 150, 243, 0.2)')
+          .attr('stroke', '#2196f3')
+          .attr('stroke-width', 1)
+          .attr('stroke-dasharray', '3,3')
+        
+        // 方向指示器
+        cartGroup.append('polygon')
+          .attr('class', 'direction-indicator')
+          .attr('points', '0,-15 -5,-10 5,-10')
+          .attr('fill', '#ff4444')
+          .attr('stroke', '#ffffff')
+          .attr('stroke-width', 1)
+        
+        // 小车轮子
+        cartGroup.append('circle')
+          .attr('cx', -8)
+          .attr('cy', 6)
+          .attr('r', 3)
+          .attr('fill', '#333')
+        
+        cartGroup.append('circle')
+          .attr('cx', 8)
+          .attr('cy', 6)
+          .attr('r', 3)
+          .attr('fill', '#333')
+        
+        // 小车编号
+        cartGroup.append('text')
+          .attr('text-anchor', 'middle')
+          .attr('dominant-baseline', 'middle')
+          .attr('font-size', '8px')
+          .attr('fill', 'white')
+          .attr('font-weight', 'bold')
+          .text(enhancedCarts.value.length + 1)
+        
+        // GPS坐标显示
+        cartGroup.append('text')
+          .attr('class', 'gps-coords')
+          .attr('x', 0)
+          .attr('y', -20)
+          .attr('text-anchor', 'middle')
+          .attr('font-size', '6px')
+          .attr('fill', '#666')
+          .text(`${newCart.latitude.toFixed(6)}, ${newCart.longitude.toFixed(6)}`)
+        
+        // 货物指示器
+        cartGroup.append('rect')
+          .attr('class', 'cargo-indicator')
+          .attr('x', -6)
+          .attr('y', -12)
+          .attr('width', 12)
+          .attr('height', 6)
+          .attr('fill', '#ff9800')
+          .attr('stroke', '#f57c00')
+          .attr('stroke-width', 1)
+          .attr('rx', 1)
+          .style('display', 'none')
+        
+        newCart.element = cartGroup
+        enhancedCarts.value.push(newCart)
+        
+        // 递归尝试分配
+        setTimeout(() => dispatchDeliveryCart(delivery), 1000)
+      }
+    }
+  }
+}
+
+// 手动触发送货
+function manualDelivery() {
+  console.log(`📦 当前包装区库存: ${packagingCounter.value}个`)
+  
+  if (packagingCounter.value >= 10) { // 降低最低送货要求到10个
+    // 手动送货时，即使不满1000个也可以送货
+    const deliveryQuantity = packagingCounter.value >= 100 ? 
+      Math.floor(packagingCounter.value / 100) * 100 : // 按100的倍数送货
+      packagingCounter.value // 全部送货
+    
+    if (deliveryQuantity > 0) {
+      // 创建送货记录
+      const delivery = {
+        id: deliveryIdCounter++,
+        timestamp: Date.now(),
+        quantity: deliveryQuantity,
+        destination: '客户配送中心',
+        status: 'pending' as const,
+        estimatedArrival: Date.now() + (30 * 60 * 1000) // 预计30分钟送达
+      }
+      
+      deliveryHistory.value.unshift(delivery)
+      
+      // 减少包装区库存
+      packagingCounter.value -= deliveryQuantity
+      lastDeliveryTime.value = Date.now()
+      
+      // 派遣送货小车
+      dispatchDeliveryCart(delivery)
+      
+      console.log(`🚚 手动送货: ${deliveryQuantity} 个产品已安排配送`)
+      
+      // 更新送货状态
+      setTimeout(() => {
+        delivery.status = 'in-transit'
+        console.log(`🚛 送货 #${delivery.id} 已出发`)
+      }, 2000)
+      
+      setTimeout(() => {
+        delivery.status = 'delivered'
+        console.log(`✅ 送货 #${delivery.id} 已送达`)
+      }, delivery.estimatedArrival - Date.now())
+    }
+  } else if (packagingCounter.value > 0) {
+    console.log(`⚠️ 包装区产品数量较少(${packagingCounter.value}个)，建议至少10个再送货`)
+    // 提供强制送货选项
+    if (confirm(`当前只有${packagingCounter.value}个产品，是否强制送货？`)) {
+      // 强制送货逻辑
+      const delivery = {
+        id: deliveryIdCounter++,
+        timestamp: Date.now(),
+        quantity: packagingCounter.value,
+        destination: '客户配送中心',
+        status: 'pending' as const,
+        estimatedArrival: Date.now() + (30 * 60 * 1000)
+      }
+      
+      deliveryHistory.value.unshift(delivery)
+      packagingCounter.value = 0
+      lastDeliveryTime.value = Date.now()
+      dispatchDeliveryCart(delivery)
+      
+      console.log(`🚚 强制送货: ${delivery.quantity} 个产品已安排配送`)
+    }
+  } else {
+    console.log('⚠️ 包装区暂无产品，无法安排送货')
+    // 提供测试数据选项
+    if (confirm('包装区暂无产品，是否添加测试数据？')) {
+      packagingCounter.value = 150 // 添加150个测试产品
+      totalProduced.value += 150
+      console.log('✅ 已添加150个测试产品到包装区')
+    }
+  }
+}
+
+// 调整生产速度
+function adjustProductionSpeed(speed: number) {
+  realTimeProduction.value.productionSpeed = Math.max(1, Math.min(5, speed))
+  
+  if (realTimeProduction.value.isRunning) {
+    // 重启生产以应用新速度
+    stopRealTimeProduction()
+    startRealTimeProduction()
+  }
+  
+  console.log(`⚡ 生产速度已调整为 ${realTimeProduction.value.productionSpeed}x`)
+}
+
+// 重置包装区计数器
+function resetPackagingCounter() {
+  packagingCounter.value = 0
+  console.log('🔄 包装区计数器已重置')
+}
+
+// 添加测试产品
+function addTestProducts() {
+  const testAmount = 150
+  packagingCounter.value += testAmount
+  totalProduced.value += testAmount
+  realTimeProduction.value.todayProduced += testAmount
+  console.log(`📦 已添加 ${testAmount} 个测试产品到包装区`)
+}
+
+// 获取送货状态文本
+function getDeliveryStatusText(status: string): string {
+  const statusMap = {
+    pending: '准备中',
+    'in-transit': '运输中',
+    delivered: '已送达'
+  }
+  return statusMap[status] || status
+}
+
+// 格式化时间
+function formatTime(timestamp: number): string {
+  return new Date(timestamp).toLocaleTimeString('zh-CN')
 }
 
 
@@ -649,21 +1120,102 @@ function addOrder() {
 }
 
 function deployCart() {
-  if (activeCarts.value.length < maxCarts) {
+  if (enhancedCarts.value.length < maxCarts) {
     const availableSpot = factoryLayout.parkingSpots.find(spot => 
-      !activeCarts.value.some(cart => cart.x === spot.x && cart.y === spot.y)
+      !enhancedCarts.value.some(c => 
+        Math.abs(c.x - spot.x) < 10 && Math.abs(c.y - spot.y) < 10
+      )
     )
     
     if (availableSpot) {
-      const newCart = new FactoryCart(`cart-${activeCarts.value.length + 1}`, availableSpot)
-      // 创建新小车的视觉元素...
-      activeCarts.value.push(newCart)
+      const newCart = new EnhancedFactoryCart(`enhanced-cart-${enhancedCarts.value.length + 1}`, availableSpot)
+      
+      // 创建新小车的SVG元素（增强版）
+      const cartGroup = svg.append('g')
+        .attr('class', 'enhanced-cart')
+        .attr('id', `cart-${newCart.id}`)
+      
+      // 小车主体
+      cartGroup.append('rect')
+        .attr('x', -12)
+        .attr('y', -8)
+        .attr('width', 24)
+        .attr('height', 16)
+        .attr('fill', '#2196f3')
+        .attr('stroke', '#1976d2')
+        .attr('stroke-width', 1)
+        .attr('rx', 2)
+      
+      // GPS精度圆圈
+      cartGroup.append('circle')
+        .attr('class', 'gps-accuracy')
+        .attr('r', 0)
+        .attr('fill', 'rgba(33, 150, 243, 0.2)')
+        .attr('stroke', '#2196f3')
+        .attr('stroke-width', 1)
+        .attr('stroke-dasharray', '3,3')
+      
+      // 方向指示器
+      cartGroup.append('polygon')
+        .attr('class', 'direction-indicator')
+        .attr('points', '0,-15 -5,-10 5,-10')
+        .attr('fill', '#ff4444')
+        .attr('stroke', '#ffffff')
+        .attr('stroke-width', 1)
+      
+      // 小车轮子
+      cartGroup.append('circle')
+        .attr('cx', -8)
+        .attr('cy', 6)
+        .attr('r', 3)
+        .attr('fill', '#333')
+      
+      cartGroup.append('circle')
+        .attr('cx', 8)
+        .attr('cy', 6)
+        .attr('r', 3)
+        .attr('fill', '#333')
+      
+      // 小车编号
+      cartGroup.append('text')
+        .attr('text-anchor', 'middle')
+        .attr('dominant-baseline', 'middle')
+        .attr('font-size', '8px')
+        .attr('fill', 'white')
+        .attr('font-weight', 'bold')
+        .text(enhancedCarts.value.length + 1)
+      
+      // GPS坐标显示
+      cartGroup.append('text')
+        .attr('class', 'gps-coords')
+        .attr('x', 0)
+        .attr('y', -20)
+        .attr('text-anchor', 'middle')
+        .attr('font-size', '6px')
+        .attr('fill', '#666')
+        .text(`${newCart.latitude.toFixed(6)}, ${newCart.longitude.toFixed(6)}`)
+      
+      // 货物指示器
+      cartGroup.append('rect')
+        .attr('class', 'cargo-indicator')
+        .attr('x', -6)
+        .attr('y', -12)
+        .attr('width', 12)
+        .attr('height', 6)
+        .attr('fill', '#ff9800')
+        .attr('stroke', '#f57c00')
+        .attr('stroke-width', 1)
+        .attr('rx', 1)
+        .style('display', 'none')
+      
+      newCart.element = cartGroup
+      enhancedCarts.value.push(newCart)
     }
   }
 }
 
 function recallAllCarts() {
-  activeCarts.value.forEach(cart => {
+  enhancedCarts.value.forEach(cart => {
     cart.status = 'idle'
     cart.cargo = null
     cart.destination = null
@@ -1378,6 +1930,8 @@ onUnmounted(() => {
   transform: translateY(-1px);
 }
 
+
+
 button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
@@ -1426,6 +1980,185 @@ button:disabled {
 .value {
   font-weight: 600;
   color: #333;
+}
+
+/* 包装区管理样式 */
+.packaging-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.text-success {
+  color: #28a745;
+  font-weight: 600;
+}
+
+.text-warning {
+  color: #ffc107;
+  font-weight: 600;
+}
+
+.stat-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 8px;
+  background: #f8f9fa;
+  border-radius: 4px;
+  font-size: 11px;
+}
+
+.value.highlight {
+  color: #007bff;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.packaging-controls {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.btn-secondary {
+  background: #6c757d;
+  color: white;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 4px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.auto-delivery-toggle {
+  padding: 8px;
+  background: #e3f2fd;
+  border-radius: 4px;
+  font-size: 11px;
+}
+
+.auto-delivery-toggle label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+/* 实时生产控制样式 */
+.production-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.speed-control {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.speed-control label {
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.speed-slider {
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: #ddd;
+  outline: none;
+}
+
+.production-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* 送货记录样式 */
+.delivery-history {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.no-deliveries {
+  text-align: center;
+  color: #666;
+  font-style: italic;
+  padding: 20px;
+}
+
+.delivery-item {
+  padding: 8px;
+  margin-bottom: 8px;
+  border-radius: 4px;
+  border-left: 3px solid #007bff;
+  background: #f8f9fa;
+  font-size: 10px;
+}
+
+.delivery-item.pending {
+  border-left-color: #ffc107;
+  background: #fffbf0;
+}
+
+.delivery-item.in-transit {
+  border-left-color: #17a2b8;
+  background: #f0f8ff;
+}
+
+.delivery-item.delivered {
+  border-left-color: #28a745;
+  background: #f0fff4;
+}
+
+.delivery-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.delivery-id {
+  font-weight: 600;
+  color: #007bff;
+}
+
+.delivery-status {
+  font-weight: 500;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 9px;
+}
+
+.delivery-status.pending {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.delivery-status.in-transit {
+  background: #cce7ff;
+  color: #004085;
+}
+
+.delivery-status.delivered {
+  background: #d4edda;
+  color: #155724;
+}
+
+.delivery-details {
+  display: flex;
+  gap: 12px;
+  color: #666;
+  margin-bottom: 4px;
+}
+
+.delivery-destination {
+  color: #28a745;
+  font-weight: 500;
 }
 
 .status.running {
