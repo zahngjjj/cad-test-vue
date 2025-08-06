@@ -1,6 +1,6 @@
 <template>
   <div class="process-flow-container">
-    <!-- 将背景层移到 VueFlow 外部 -->
+    <!-- 背景层 -->
     <div 
       class="custom-background"
       :style="{
@@ -18,6 +18,7 @@
       @connect="onConnect"
       @node-click="onNodeClick"
       @viewport-change="onViewportChange"
+      ref="vueFlowRef"
     >
       <Background pattern="none" />
       <Controls />
@@ -65,11 +66,11 @@ import '@vue-flow/core/dist/theme-default.css'
 // 视口状态
 const viewport = ref({ x: 0, y: 0, zoom: 1 })
 const bgImage = ref(bgImageUrl)
+const vueFlowRef = ref(null)
 
 // 视口变化处理
 function onViewportChange(newViewport: any) {
   viewport.value = newViewport
-  console.log('视口变化:', newViewport) // 添加调试日志
 }
 
 const elements = ref([
@@ -117,13 +118,13 @@ const elements = ref([
     }
   },
   
-  // 连接线定义
+  // 连接线定义 - 使用 VueFlow 原生动画
   {
     id: 'e1-2',
     source: '1',
     target: '2',
     type: 'smoothstep',
-    animated: true,
+    animated: true,  // VueFlow 原生动画
     style: { stroke: '#0066cc', strokeWidth: 3 }
   },
   {
@@ -131,7 +132,7 @@ const elements = ref([
     source: '2',
     target: '3',
     type: 'smoothstep',
-    animated: true,
+    animated: true,  // VueFlow 原生动画
     style: { stroke: '#0066cc', strokeWidth: 3 }
   },
   {
@@ -139,7 +140,7 @@ const elements = ref([
     source: '3',
     target: '4',
     type: 'smoothstep',
-    animated: true,
+    animated: true,  // VueFlow 原生动画
     style: { stroke: '#0066cc', strokeWidth: 3 }
   }
 ])
@@ -151,7 +152,6 @@ function onConnect(connection: any) {
 
 function onNodeClick(event: any) {
   console.log('节点点击:', event.node)
-  // 可以在这里添加节点属性编辑功能
 }
 
 // 模拟实时数据更新
@@ -183,9 +183,9 @@ onMounted(() => {
   position: absolute;
   top: 0;
   left: 0;
-  width: 100vw; /* 增大背景尺寸 */
+  width: 100vw;
   height: 100vh;
-  background-size: 100% 100%; /* 固定背景尺寸 */
+  background-size: 100% 100%;
   background-position: 0 0;
   background-repeat: repeat;
   opacity: 1;
@@ -210,10 +210,6 @@ onMounted(() => {
 }
 
 /* Vue Flow 基础样式补充 */
-:deep(.vue-flow__background) {
-  background-color: #f9f9f9;
-}
-
 :deep(.vue-flow__controls) {
   position: absolute;
   bottom: 10px;
