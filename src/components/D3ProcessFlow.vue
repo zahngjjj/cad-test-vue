@@ -43,9 +43,9 @@ onMounted(() => {
   // 创建节点数据
   const nodes = [
     { id: 'tank1', x: 100, y: 200, type: 'tank', label: '原料罐' },
-    { id: 'valve1', x: 250, y: 200, type: 'valve', label: '控制阀' },
-    { id: 'reactor', x: 400, y: 200, type: 'reactor', label: '反应器' },
-    { id: 'pump1', x: 550, y: 200, type: 'pump', label: '出料泵' }
+    { id: 'valve1', x: 250, y: 300, type: 'valve', label: '控制阀' },
+    { id: 'reactor', x: 400, y: 260, type: 'reactor', label: '反应器' },
+    { id: 'pump1', x: 550, y: 400, type: 'pump', label: '出料泵' }
   ]
   
   // 创建连接数据
@@ -97,6 +97,151 @@ onMounted(() => {
     .attr('cx', nodes[0].x)
     .attr('cy', nodes[0].y)
   
+  // 可控制的粒子动画参数
+  const animationConfig = {
+    moveDuration: 6000,    // 运动持续时间（毫秒）
+    pauseDuration: 3000,   // 停顿持续时间（毫秒）
+    segmentDuration: 1000, // 每段路径的运动时间
+    autoRestart: true      // 是否自动重新开始
+  }
+  
+  let animationState = {
+    isRunning: false,
+    currentIndex: 0,
+    isPaused: false
+  }
+  
+  // 可控制的粒子动画函数
+  function animateParticleWithControl() {
+    animationState.isRunning = true
+    animationState.currentIndex = 0
+    
+    // 重置粒子位置到起始点
+    particle
+      .attr('cx', nodes[0].x)
+      .attr('cy', nodes[0].y)
+      .attr('opacity', 1)
+    
+    function moveToNextSegment() {
+      if (animationState.currentIndex < links.length && animationState.isRunning) {
+        const link = links[animationState.currentIndex]
+        const targetNode = nodes.find(n => n.id === link.target)
+        
+        if (targetNode) {
+          console.log(`开始移动到第 ${animationState.currentIndex + 1} 段路径`)
+          
+          particle
+            .transition()
+            .duration(animationConfig.segmentDuration)
+            .ease(d3.easeLinear)
+            .attr('cx', targetNode.x)
+            .attr('cy', targetNode.y)
+            .on('end', () => {
+              animationState.currentIndex++
+              
+              // 运动1秒后停顿
+              if (animationState.currentIndex < links.length) {
+                console.log(`停顿 ${animationConfig.pauseDuration}ms`)
+                animationState.isPaused = true
+                
+                // 停顿期间粒子闪烁效果
+                const blinkInterval = setInterval(() => {
+                  if (!animationState.isPaused) {
+                    clearInterval(blinkInterval)
+                    return
+                  }
+                  particle
+                    .transition()
+                    .duration(200)
+                    .attr('opacity', 0.3)
+                    .transition()
+                    .duration(200)
+                    .attr('opacity', 1)
+                }, 400)
+                
+                // 3秒后继续运动
+                setTimeout(() => {
+                  animationState.isPaused = false
+                  clearInterval(blinkInterval)
+                  particle.attr('opacity', 1)
+                  moveToNextSegment()
+                }, animationConfig.pauseDuration)
+              } else {
+                // 到达终点
+                console.log('粒子到达终点')
+                animationState.isRunning = false
+                
+                // 终点闪烁效果
+                particle
+                  .transition()
+                  .duration(300)
+                  .attr('r', 10)
+                  .transition()
+                  .duration(300)
+                  .attr('r', 6)
+                
+                // 如果设置了自动重启，5秒后重新开始
+                if (animationConfig.autoRestart) {
+                  setTimeout(() => {
+                    console.log('重新开始动画')
+                    animateParticleWithControl()
+                  }, 5000)
+                }
+              }
+            })
+        }
+      }
+    }
+    
+    // 开始第一段移动
+    moveToNextSegment()
+  }
+  
+  // 控制函数
+  const particleControls = {
+    // 开始动画
+    start() {
+      if (!animationState.isRunning) {
+        console.log('手动开始粒子动画')
+        animateParticleWithControl()
+      }
+    },
+    
+    // 停止动画
+    stop() {
+      console.log('停止粒子动画')
+      animationState.isRunning = false
+      animationState.isPaused = false
+      particle.interrupt() // 中断当前动画
+    },
+    
+    // 重置到起始位置
+    reset() {
+      this.stop()
+      particle
+        .attr('cx', nodes[0].x)
+        .attr('cy', nodes[0].y)
+        .attr('opacity', 1)
+        .attr('r', 6)
+      animationState.currentIndex = 0
+      console.log('重置粒子位置')
+    },
+    
+    // 设置动画参数
+    setConfig(newConfig) {
+      Object.assign(animationConfig, newConfig)
+      console.log('更新动画配置:', animationConfig)
+    }
+  }
+  
+  // 将控制函数暴露到全局（用于调试）
+  ;(window as any).particleControls = particleControls
+  
+  // 延迟1秒后自动开始动画
+  setTimeout(() => {
+    particleControls.start()
+  }, 1000)
+
   // 单次粒子动画，沿着所有连接线移动
   function animateParticleOnce() {
     let currentIndex = 0
