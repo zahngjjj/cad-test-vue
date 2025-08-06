@@ -1258,30 +1258,256 @@ onUnmounted(() => {
 
 </script>
 <style scoped>
-/* SVG 样式 */
-:deep(.cart) {
+/* 主要布局样式 */
+.factory-simulation {
+  display: flex;
+  height: 100vh;
+  width: 100%;
+  background: #f5f5f5;
+  font-family: 'Arial', sans-serif;
+  overflow: hidden;
+}
+
+/* 控制面板样式 */
+.control-panel {
+  width: 320px;
+  min-width: 320px;
+  background: white;
+  border-right: 2px solid #e0e0e0;
+  padding: 16px;
+  overflow-y: auto;
+  box-shadow: 2px 0 8px rgba(0,0,0,0.1);
+}
+
+/* 工厂布局区域 */
+.factory-layout {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  overflow: hidden;
+}
+
+/* SVG容器 */
+.factory-svg {
+  width: 100%;
+  height: calc(100vh - 200px);
+  background: white;
+  border-radius: 8px;
+  margin: 16px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+/* 控制面板内部样式 */
+.control-section {
+  margin-bottom: 20px;
+  padding: 16px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border-left: 4px solid #007bff;
+}
+
+.control-section h3 {
+  margin: 0 0 12px 0;
+  color: #333;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* 按钮样式 */
+.btn-primary, .btn-danger, .btn-success, .btn-info, .btn-warning {
+  padding: 8px 16px;
+  margin: 4px;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
   cursor: pointer;
-  transition: all 0.3s;
+  transition: all 0.3s ease;
+  min-width: 80px;
 }
 
-:deep(.cart:hover) {
-  filter: drop-shadow(0 0 5px rgba(33, 150, 243, 0.8));
+.btn-primary {
+  background: #007bff;
+  color: white;
 }
 
-:deep(.production-area) {
-  transition: all 0.3s;
+.btn-primary:hover:not(:disabled) {
+  background: #0056b3;
+  transform: translateY(-1px);
 }
 
-:deep(.production-area:hover) {
-  opacity: 0.8;
+.btn-danger {
+  background: #dc3545;
+  color: white;
 }
 
-:deep(.road) {
-  transition: all 0.3s;
+.btn-danger:hover:not(:disabled) {
+  background: #c82333;
+  transform: translateY(-1px);
 }
 
-:deep(.road:hover) {
-  stroke-width: 12;
+.btn-success {
+  background: #28a745;
+  color: white;
+}
+
+.btn-success:hover:not(:disabled) {
+  background: #218838;
+  transform: translateY(-1px);
+}
+
+.btn-info {
+  background: #17a2b8;
+  color: white;
+}
+
+.btn-info:hover:not(:disabled) {
+  background: #138496;
+  transform: translateY(-1px);
+}
+
+.btn-warning {
+  background: #ffc107;
+  color: #212529;
+}
+
+.btn-warning:hover:not(:disabled) {
+  background: #e0a800;
+  transform: translateY(-1px);
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+/* 状态面板样式 */
+.status-section {
+  margin-bottom: 20px;
+  padding: 16px;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.status-section h3 {
+  margin: 0 0 12px 0;
+  color: #333;
+  font-size: 14px;
+  font-weight: 600;
+  border-bottom: 2px solid #f0f0f0;
+  padding-bottom: 8px;
+}
+
+.status-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+.status-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px;
+  background: #f8f9fa;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.label {
+  font-weight: 500;
+  color: #666;
+}
+
+.value {
+  font-weight: 600;
+  color: #333;
+}
+
+.status.running {
+  color: #28a745;
+  font-weight: 600;
+}
+
+.status.stopped {
+  color: #dc3545;
+  font-weight: 600;
+}
+
+/* 订单队列样式 */
+.order-queue {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  width: 300px;
+  background: white;
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.order-queue h4 {
+  margin: 0 0 12px 0;
+  color: #333;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.order-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.order-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px;
+  background: #f8f9fa;
+  border-radius: 4px;
+  font-size: 11px;
+  border-left: 3px solid #007bff;
+}
+
+.order-item.high {
+  border-left-color: #dc3545;
+  background: #fff5f5;
+}
+
+.order-item.medium {
+  border-left-color: #ffc107;
+  background: #fffbf0;
+}
+
+.order-item.low {
+  border-left-color: #28a745;
+  background: #f0fff4;
+}
+
+.order-id {
+  font-weight: 600;
+  color: #007bff;
+}
+
+.order-product {
+  font-weight: 500;
+  color: #333;
+}
+
+.order-quantity {
+  color: #666;
+}
+
+.order-destination {
+  color: #28a745;
+  font-weight: 500;
 }
 
 .gps-controls {
@@ -1393,6 +1619,93 @@ onUnmounted(() => {
   display: flex;
   gap: 10px;
   color: #333;
+}
+
+/* 响应式设计 */
+@media (max-width: 1200px) {
+  .control-panel {
+    width: 280px;
+    min-width: 280px;
+  }
+  
+  .factory-svg {
+    height: calc(100vh - 180px);
+  }
+  
+  .order-queue {
+    width: 250px;
+  }
+}
+
+@media (max-width: 768px) {
+  .factory-simulation {
+    flex-direction: column;
+    height: auto;
+  }
+  
+  .control-panel {
+    width: 100%;
+    min-width: auto;
+    max-height: 300px;
+  }
+  
+  .factory-svg {
+    height: 400px;
+    margin: 8px;
+  }
+  
+  .order-queue {
+    position: relative;
+    bottom: auto;
+    right: auto;
+    width: 100%;
+    margin: 8px;
+  }
+}
+
+/* 滚动条样式 */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* SVG 样式 */
+:deep(.cart) {
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+:deep(.cart:hover) {
+  filter: drop-shadow(0 0 5px rgba(33, 150, 243, 0.8));
+}
+
+:deep(.production-area) {
+  transition: all 0.3s;
+}
+
+:deep(.production-area:hover) {
+  opacity: 0.8;
+}
+
+:deep(.road) {
+  transition: all 0.3s;
+}
+
+:deep(.road:hover) {
+  stroke-width: 12;
 }
 
 /* SVG增强样式 */
