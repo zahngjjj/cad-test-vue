@@ -72,3 +72,6 @@ https://gojs.net/latest/samples/processFlow.html
 
 
 ### 14.0  Vue Diagram Editor
+
+
+有支持移动动画的 ,免费的流程图开源图表库方案吗?
