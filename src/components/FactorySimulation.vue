@@ -101,7 +101,7 @@
       </div>
       
       <div class="control-section">
-        <h3>📦 包装区管理</h3>
+        <h3>📦 发货区管理</h3>
         <div class="packaging-stats">
           <div class="stat-item">
             <span class="label">当前库存:</span>
@@ -810,7 +810,7 @@ function simulateProduction() {
   totalProduced.value += producedCount
   realTimeProduction.value.todayProduced += producedCount
   
-  console.log(`📦 包装区新增 ${producedCount} 个产品，当前总数: ${packagingCounter.value}`)
+//   console.log(`📦 包装区新增 ${producedCount} 个产品，当前总数: ${packagingCounter.value}`)
   
   // 检查是否达到送货阈值
   if (autoDeliveryEnabled.value && packagingCounter.value >= packagingTarget.value) {
@@ -1216,10 +1216,38 @@ function deployCart() {
 
 function recallAllCarts() {
   enhancedCarts.value.forEach(cart => {
-    cart.status = 'idle'
+    // 清空当前任务
     cart.cargo = null
     cart.destination = null
+    cart.plannedPath = []
+    cart.currentPathIndex = 0
+    
+    // 寻找可用的停车位
+    const availableParkingSpot = factoryLayout.parkingSpots.find(spot => 
+      !enhancedCarts.value.some(otherCart => 
+        otherCart.id !== cart.id && 
+        Math.abs(otherCart.x - spot.x) < 10 && 
+        Math.abs(otherCart.y - spot.y) < 10
+      )
+    )
+    
+    if (availableParkingSpot) {
+      // 设置GPS目标为停车位
+      const gpsCoord = svgToGps(availableParkingSpot.x, availableParkingSpot.y)
+      cart.setGpsDestination(gpsCoord.latitude, gpsCoord.longitude, '停车位')
+      
+      console.log(`🚗 小车 ${cart.id} 正在返回停车位`)
+    } else {
+      // 如果没有可用停车位，直接设置为空闲状态
+      cart.status = 'idle'
+      console.log(`⚠️ 小车 ${cart.id} 无可用停车位，就地待命`)
+    }
   })
+  
+  // 清空所有待处理订单
+  pendingOrders.value = []
+  
+  console.log('📢 所有小车已收到召回指令')
 }
 
 // 发送GPS指令
