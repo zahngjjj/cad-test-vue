@@ -1,11 +1,37 @@
-<script setup lang="ts"></script>
-
 <template>
-  <h1>You did it!</h1>
-  <p>
-    Visit <a href="https://vuejs.org/" target="_blank" rel="noopener">vuejs.org</a> to read the
-    documentation
-  </p>
+  <div id="app">
+    <!-- <LibreDWGDemo /> -->
+    <!-- <DWGToSVGDemo /> -->
+    <!-- <CADViewer /> -->
+     <!-- <DWG2DViewer/> -->
+     <CAD3DViewer/>
+  </div>
 </template>
+
+<script setup lang="ts">
+// import LibreDWGDemo from './components/LibreDWGDemo.vue'
+// import DWGToSVGDemo from './components/DWGToSVGDemo.vue'
+// import CADViewer from './components/CADViewer.vue'
+// import DWG2DViewer from './components/DWG2DViewer.vue'
+import CAD3DViewer from './components/CAD3DViewer.vue'
+
+</script>
+
+<style>
+#app {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100vh;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+}
+</style>
+
+
+
 
 <style scoped></style>
