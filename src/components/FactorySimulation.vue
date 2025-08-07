@@ -471,6 +471,56 @@ function initializeFactory() {
     .attr('height', 400)
     .attr('opacity', 1)
   
+  // 质检区建筑渐变
+  const buildingGradient = defs.append('linearGradient')
+    .attr('id', 'buildingGradient')
+    .attr('x1', '0%')
+    .attr('y1', '0%')
+    .attr('x2', '100%')
+    .attr('y2', '100%')
+  
+  buildingGradient.append('stop')
+    .attr('offset', '0%')
+    .attr('stop-color', '#e8eaf6')
+  
+  buildingGradient.append('stop')
+    .attr('offset', '50%')
+    .attr('stop-color', '#c5cae9')
+  
+  buildingGradient.append('stop')
+    .attr('offset', '100%')
+    .attr('stop-color', '#9fa8da')
+  
+  // 屋顶渐变
+  const roofGradient = defs.append('linearGradient')
+    .attr('id', 'roofGradient')
+    .attr('x1', '0%')
+    .attr('y1', '0%')
+    .attr('x2', '100%')
+    .attr('y2', '100%')
+  
+  roofGradient.append('stop')
+    .attr('offset', '0%')
+    .attr('stop-color', '#5c6bc0')
+  
+  roofGradient.append('stop')
+    .attr('offset', '100%')
+    .attr('stop-color', '#3f51b5')
+  
+  // 阴影滤镜
+  const shadow = defs.append('filter')
+    .attr('id', 'buildingShadow')
+    .attr('x', '-50%')
+    .attr('y', '-50%')
+    .attr('width', '200%')
+    .attr('height', '200%')
+  
+  shadow.append('feDropShadow')
+    .attr('dx', '3')
+    .attr('dy', '3')
+    .attr('stdDeviation', '2')
+    .attr('flood-color', 'rgba(0,0,0,0.3)')
+  
   // 删除网格pattern相关代码
   // const gridPattern = defs.append('pattern')
   //   .attr('id', 'grid')
@@ -504,24 +554,35 @@ function initializeFactory() {
     .append('g')
     .attr('class', 'production-area')
   
-  areas.append('rect')
-    .attr('x', d => d.x)
-    .attr('y', d => d.y)
-    .attr('width', d => d.width)
-    .attr('height', d => d.height)
-    .attr('fill', d => getAreaColor(d.type))
-    .attr('stroke', '#333')
-    .attr('stroke-width', 2)
-    .attr('rx', 5)
-  
-  areas.append('text')
-    .attr('x', d => d.x + d.width/2)
-    .attr('y', d => d.y + d.height/2)
-    .attr('text-anchor', 'middle')
-    .attr('dominant-baseline', 'middle')
-    .attr('font-size', '12px')
-    .attr('font-weight', 'bold')
-    .text(d => d.label)
+  // 为每个区域绘制不同样式
+  areas.each(function(d) {
+    const area = d3.select(this)
+    
+    if (d.type === 'inspection') {
+      // 质检区 - 立体建筑样式
+      drawInspectionBuilding(area, d)
+    } else {
+      // 其他区域保持原样
+      area.append('rect')
+        .attr('x', d.x)
+        .attr('y', d.y)
+        .attr('width', d.width)
+        .attr('height', d.height)
+        .attr('fill', getAreaColor(d.type))
+        .attr('stroke', '#333')
+        .attr('stroke-width', 2)
+        .attr('rx', 5)
+      
+      area.append('text')
+        .attr('x', d.x + d.width/2)
+        .attr('y', d.y + d.height/2)
+        .attr('text-anchor', 'middle')
+        .attr('dominant-baseline', 'middle')
+        .attr('font-size', '12px')
+        .attr('font-weight', 'bold')
+        .text(d.label)
+    }
+  })
   
   // 绘制道路
   svg.selectAll('.road')
@@ -565,6 +626,148 @@ function getAreaColor(type: string): string {
     shipping: '#fce4ec'
   }
   return colors[type] || '#f5f5f5'
+}
+
+// 新增：绘制质检区建筑的函数
+function drawInspectionBuilding(container: any, data: any) {
+  const { x, y, width, height } = data
+  
+  // 建筑主体（带立体效果）
+  const building = container.append('g')
+    .attr('class', 'inspection-building')
+    .attr('filter', 'url(#buildingShadow)')
+  
+  // 建筑背面（3D效果）
+  building.append('rect')
+    .attr('x', x + 4)
+    .attr('y', y - 4)
+    .attr('width', width)
+    .attr('height', height)
+    .attr('fill', '#7986cb')
+    .attr('opacity', 0.6)
+    .attr('rx', 3)
+  
+  // 建筑主体
+  building.append('rect')
+    .attr('x', x)
+    .attr('y', y)
+    .attr('width', width)
+    .attr('height', height)
+    .attr('fill', 'url(#buildingGradient)')
+    .attr('stroke', '#3f51b5')
+    .attr('stroke-width', 2)
+    .attr('rx', 3)
+  
+  // 屋顶
+  building.append('polygon')
+    .attr('points', `${x-5},${y} ${x+width/2},${y-15} ${x+width+5},${y}`)
+    .attr('fill', 'url(#roofGradient)')
+    .attr('stroke', '#283593')
+    .attr('stroke-width', 1)
+  
+  // 窗户
+  const windowRows = 2
+  const windowCols = 3
+  const windowWidth = 8
+  const windowHeight = 12
+  const windowSpacingX = (width - windowCols * windowWidth) / (windowCols + 1)
+  const windowSpacingY = (height - windowRows * windowHeight) / (windowRows + 1)
+  
+  for (let row = 0; row < windowRows; row++) {
+    for (let col = 0; col < windowCols; col++) {
+      const windowX = x + windowSpacingX + col * (windowWidth + windowSpacingX)
+      const windowY = y + windowSpacingY + row * (windowHeight + windowSpacingY)
+      
+      // 窗户框架
+      building.append('rect')
+        .attr('x', windowX)
+        .attr('y', windowY)
+        .attr('width', windowWidth)
+        .attr('height', windowHeight)
+        .attr('fill', '#e3f2fd')
+        .attr('stroke', '#1976d2')
+        .attr('stroke-width', 1)
+        .attr('rx', 1)
+      
+      // 窗户分隔线
+      building.append('line')
+        .attr('x1', windowX + windowWidth/2)
+        .attr('y1', windowY)
+        .attr('x2', windowX + windowWidth/2)
+        .attr('y2', windowY + windowHeight)
+        .attr('stroke', '#1976d2')
+        .attr('stroke-width', 0.5)
+      
+      building.append('line')
+        .attr('x1', windowX)
+        .attr('y1', windowY + windowHeight/2)
+        .attr('x2', windowX + windowWidth)
+        .attr('y2', windowY + windowHeight/2)
+        .attr('stroke', '#1976d2')
+        .attr('stroke-width', 0.5)
+    }
+  }
+  
+  // 大门
+  const doorWidth = 16
+  const doorHeight = 24
+  const doorX = x + (width - doorWidth) / 2
+  const doorY = y + height - doorHeight
+  
+  building.append('rect')
+    .attr('x', doorX)
+    .attr('y', doorY)
+    .attr('width', doorWidth)
+    .attr('height', doorHeight)
+    .attr('fill', '#2c387e')
+    .attr('stroke', '#1a237e')
+    .attr('stroke-width', 1)
+    .attr('rx', 2)
+  
+  // 门把手
+  building.append('circle')
+    .attr('cx', doorX + doorWidth - 3)
+    .attr('cy', doorY + doorHeight/2)
+    .attr('r', 1)
+    .attr('fill', '#ffd700')
+  
+  // 建筑标识牌
+  const signWidth = 24
+  const signHeight = 8
+  const signX = x + (width - signWidth) / 2
+  const signY = y + 8
+  
+  building.append('rect')
+    .attr('x', signX)
+    .attr('y', signY)
+    .attr('width', signWidth)
+    .attr('height', signHeight)
+    .attr('fill', '#ffffff')
+    .attr('stroke', '#3f51b5')
+    .attr('stroke-width', 1)
+    .attr('rx', 2)
+  
+  // 标识文字
+  building.append('text')
+    .attr('x', x + width/2)
+    .attr('y', signY + signHeight/2)
+    .attr('text-anchor', 'middle')
+    .attr('dominant-baseline', 'middle')
+    .attr('font-size', '6px')
+    .attr('font-weight', 'bold')
+    .attr('fill', '#3f51b5')
+    .text('质检区')
+  
+  // 建筑名称（在建筑下方）
+  container.append('text')
+    .attr('x', x + width/2)
+    .attr('y', y + height + 15)
+    .attr('text-anchor', 'middle')
+    .attr('dominant-baseline', 'middle')
+    .attr('font-size', '10px')
+    .attr('font-weight', 'bold')
+    .attr('fill', '#3f51b5')
+    .text(data.label)
 }
 
 // 初始化小车
@@ -2380,6 +2583,36 @@ button:disabled {
   display: flex;
   gap: 10px;
   color: #333;
+}
+
+/* 质检建筑样式 */
+:deep(.inspection-building) {
+  transition: all 0.3s ease;
+}
+
+:deep(.inspection-building:hover) {
+  transform: scale(1.05);
+  filter: drop-shadow(0 0 10px rgba(63, 81, 181, 0.6)) url(#buildingShadow);
+}
+
+/* 建筑动画效果 */
+:deep(.inspection-building rect) {
+  transition: fill 0.3s ease;
+}
+
+:deep(.inspection-building:hover rect) {
+  filter: brightness(1.1);
+}
+
+/* 窗户闪烁效果（模拟工作状态） */
+@keyframes windowBlink {
+  0%, 50% { fill: #e3f2fd; }
+  25%, 75% { fill: #bbdefb; }
+}
+
+:deep(.inspection-building rect:nth-child(n+4):nth-child(-n+9)) {
+  animation: windowBlink 3s infinite;
+  animation-delay: calc(var(--window-index, 0) * 0.5s);
 }
 
 /* 响应式设计 */
