@@ -832,7 +832,7 @@ function deployCart() {
   }
 }
 
-// 召回所有小车
+// 召回所有小车 - 增强版
 function recallAllCarts() {
   const startPositions = [
     { x: 100, y: 100 },  // 小车1起始位置
@@ -841,11 +841,25 @@ function recallAllCarts() {
   ]
   
   carts.value.forEach((cart, index) => {
+    // 清除当前任务
+    const assignedDelivery = pendingDeliveries.value.find(d => d.assignedCart === cart.id)
+    if (assignedDelivery) {
+      assignedDelivery.status = 'pending'
+      assignedDelivery.assignedCart = undefined
+      console.log(`📦 小车 ${cart.id} 的运货任务已重置为待分配状态`)
+    }
+    
+    // 设置召回状态
     cart.status = 'returning'
     cart.cargo = null
+    
     // 返回对应的起始位置
     cart.setGridPath([startPositions[index]])
+    
+    console.log(`🔄 小车 ${cart.id} 正在返回停车位 P${index + 1}`)
   })
+  
+  console.log('🚛 所有小车召回指令已发出')
 }
 
 // 发送网格指令
@@ -872,12 +886,19 @@ function animationLoop() {
 
 // 更新小车位置
 function updateCartPosition(cart: GridCart) {
-  if (cart.status === 'moving' && cart.path.length > 0) {
+  // ✅ 允许 'moving' 和 'returning' 状态的小车移动
+  if ((cart.status === 'moving' || cart.status === 'returning') && cart.path.length > 0) {
     const stillMoving = cart.moveAlongPath()
     if (!stillMoving) {
-      cart.status = 'idle'
-      // 处理到达事件
-      handleCartArrival(cart)
+      // 根据之前的状态设置最终状态
+      if (cart.status === 'returning') {
+        cart.status = 'idle'
+        console.log(`🏠 小车 ${cart.id} 已返回停车位`)
+      } else {
+        cart.status = 'idle'
+        // 处理到达事件
+        handleCartArrival(cart)
+      }
     }
   }
 }
