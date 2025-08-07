@@ -1,6 +1,5 @@
 # .
 
-这个dome主要是为了探寻如何打开cad文件,预览,交互等功能.
 
 ## 主要思路
 
@@ -63,6 +62,9 @@ https://gojs.net/latest/samples/processFlow.html
 
 
 ### 11.0  开源图表库方案 D3.js - 最灵活的数据可视化库
+
+
+ plot: 基于d3的图表库  https://observablehq.com/plot/
 
 
 ### 12.0  Vis.js Network - 专门用于网络图
