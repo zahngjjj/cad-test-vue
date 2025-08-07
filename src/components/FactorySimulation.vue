@@ -1705,10 +1705,10 @@ function updateEnhancedCartVisual(cart: EnhancedFactoryCart) {
     cart.element.attr('transform', `translate(${cart.x}, ${cart.y})`)
     
     // 更新GPS精度圆圈
-    const accuracyRadius = Math.max(3, cart.gpsAccuracy / 2)
-    cart.element.select('.gps-accuracy')
-      .attr('r', accuracyRadius)
-      .style('opacity', cart.isOnline ? 0.6 : 0.2)
+  const accuracyRadius = Math.max(3, Math.min(cart.gpsAccuracy / 2, 20)) // 限制最大半径为20像素
+  cart.element.select('.gps-accuracy')
+    .attr('r', accuracyRadius)
+    .style('opacity', cart.isOnline ? 0.6 : 0.2)
     
     // 更新方向指示器
     cart.element.select('.direction-indicator')
