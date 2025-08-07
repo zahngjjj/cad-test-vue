@@ -459,6 +459,60 @@ function initializeCarts() {
     { x: 180, y: 100 }   // 小车3起始位置
   ]
   
+  // 绘制停车区域标识
+  const parkingArea = svg.append('g')
+    .attr('class', 'parking-area')
+  
+  // 停车区域背景框 - 扩大范围覆盖3辆小车
+  parkingArea.append('rect')
+    .attr('x', (startPositions[0].x / (GRID_SIZE - 1)) * SVG_WIDTH - 60)
+    .attr('y', (startPositions[0].y / (GRID_SIZE - 1)) * SVG_HEIGHT - 50)
+    .attr('width', 260)
+    .attr('height', 100)
+    .attr('fill', 'rgba(135, 206, 250, 0.08)')
+    .attr('stroke', '#87CEEB')
+    .attr('stroke-width', 1)
+    .attr('stroke-dasharray', '8,4')
+    .attr('rx', 8)
+  
+  // 停车区域标题 - 改为浅蓝色
+  parkingArea.append('text')
+    .attr('x', (startPositions[1].x / (GRID_SIZE - 1)) * SVG_WIDTH)
+    .attr('y', (startPositions[0].y / (GRID_SIZE - 1)) * SVG_HEIGHT - 55)
+    .attr('text-anchor', 'middle')
+    .attr('font-size', '12px')
+    .attr('font-weight', 'bold')
+    .attr('fill', '#4682B4')
+    .text('🅿️ 停车区')
+  
+  // 停车位标识 - 细线条浅蓝色
+  startPositions.forEach((pos, index) => {
+    const parkingSpot = parkingArea.append('g')
+      .attr('class', `parking-spot-${index + 1}`)
+    
+    // 停车位框线 - 更细的线条
+    parkingSpot.append('rect')
+      .attr('x', (pos.x / (GRID_SIZE - 1)) * SVG_WIDTH - 18)
+      .attr('y', (pos.y / (GRID_SIZE - 1)) * SVG_HEIGHT - 12)
+      .attr('width', 36)
+      .attr('height', 24)
+      .attr('fill', 'none')
+      .attr('stroke', '#87CEEB')
+      .attr('stroke-width', 1)
+      .attr('stroke-dasharray', '4,2')
+      .attr('rx', 4)
+    
+    // 停车位编号 - 浅蓝色
+    parkingSpot.append('text')
+      .attr('x', (pos.x / (GRID_SIZE - 1)) * SVG_WIDTH)
+      .attr('y', (pos.y / (GRID_SIZE - 1)) * SVG_HEIGHT + 20)
+      .attr('text-anchor', 'middle')
+      .attr('font-size', '9px')
+      .attr('font-weight', 'bold')
+      .attr('fill', '#4682B4')
+      .text(`P${index + 1}`)
+  })
+  
   for (let i = 0; i < 3; i++) {
     const cart = new GridCart(`cart-${i + 1}`, startPositions[i].x, startPositions[i].y)
     
@@ -587,7 +641,7 @@ function addGridCoordinates() {
   }
 }
 
-// 开始生产
+// 开始生产 - 添加自动运货功能
 function startProduction() {
   if (isProducing.value) return
   
@@ -608,7 +662,17 @@ function startProduction() {
       if (equipment.status === 'running') {
         // 每秒累加产量（当前产量/60，因为当前产量是每分钟的）
         const incrementPerSecond = equipment.currentProduction / 60
+        const previousTotal = equipment.totalProduced
         equipment.totalProduced += incrementPerSecond
+        
+        // 检查是否达到100的倍数，触发自动运货
+        const previousMilestone = Math.floor(previousTotal / 100)
+        const currentMilestone = Math.floor(equipment.totalProduced / 100)
+        
+        if (currentMilestone > previousMilestone) {
+          // 产量达到100的倍数，触发自动运货
+          triggerAutoDelivery(equipment, currentMilestone * 100)
+        }
       }
     })
     
@@ -617,7 +681,7 @@ function startProduction() {
     
     currentProduction.value++
     
-    // 随机生成送货任务
+    // 随机生成送货任务（保留原有逻辑）
     if (Math.random() < 0.3) {
       generateDeliveryTask()
     }
@@ -665,10 +729,92 @@ function generateDeliveryTask() {
   }
 }
 
-// 派遣小车
+// 新增：触发自动运货功能 - 修改目标选择逻辑
+function triggerAutoDelivery(equipment: any, totalProduced: number) {
+  console.log(`🚚 设备 ${equipment.name} 产量达到 ${totalProduced}，触发自动运货`)
+  
+  // 根据设备类型选择合适的目标
+  let targetEquipment
+  
+  if (equipment.name.includes('生产线')) {
+    // 生产线的货物优先运到质检台，其次是包装机
+    const qualityCheck = equipmentList.value.find(eq => eq.name === '质检台')
+    const packagingMachine = equipmentList.value.find(eq => eq.name === '包装机')
+    
+    targetEquipment = qualityCheck || packagingMachine
+  } else if (equipment.name === '质检台') {
+    // 质检台的货物运到包装机
+    targetEquipment = equipmentList.value.find(eq => eq.name === '包装机')
+  } else {
+    // 其他设备随机选择（排除自己）
+    const availableTargets = equipmentList.value.filter(eq => eq.id !== equipment.id)
+    targetEquipment = availableTargets[Math.floor(Math.random() * availableTargets.length)]
+  }
+  
+  if (!targetEquipment) {
+    console.log('⚠️ 未找到合适的目标设备')
+    return
+  }
+  
+  // 创建自动运货任务
+  const autoDelivery: Delivery = {
+    id: deliveryIdCounter++,
+    type: `自动运货-${Math.floor(totalProduced)}件`,
+    fromGridX: equipment.gridX,
+    fromGridY: equipment.gridY,
+    toGridX: targetEquipment.gridX,
+    toGridY: targetEquipment.gridY,
+    status: 'pending'
+  }
+  
+  pendingDeliveries.value.push(autoDelivery)
+  
+  console.log(`📦 ${equipment.name} → ${targetEquipment.name}：自动运货任务已创建`)
+  
+  // 立即尝试派遣小车
+  setTimeout(() => {
+    autoDeployCart(autoDelivery)
+  }, 500)
+}
+
+// 新增：自动派遣小车函数
+function autoDeployCart(delivery: Delivery) {
+  const availableCart = carts.value.find(cart => cart.status === 'idle')
+  
+  if (availableCart) {
+    availableCart.status = 'moving'
+    availableCart.cargo = { type: delivery.type }
+    delivery.status = 'assigned'
+    delivery.assignedCart = availableCart.id
+    
+    // 设置路径：先到取货点，再到目的地
+    const path = [
+      { x: delivery.fromGridX, y: delivery.fromGridY },
+      { x: delivery.toGridX, y: delivery.toGridY }
+    ]
+    
+    availableCart.setGridPath(path)
+    
+    console.log(`🚛 小车 ${availableCart.id} 已自动派遣执行运货任务`)
+  } else {
+    console.log('⚠️ 暂无空闲小车，自动运货任务已排队等待')
+    // 可以考虑添加队列优先级，让自动运货任务优先执行
+  }
+}
+
+// 修改派遣小车函数，优先处理自动运货任务
 function deployCart() {
   const availableCart = carts.value.find(cart => cart.status === 'idle')
-  const pendingDelivery = pendingDeliveries.value.find(delivery => delivery.status === 'pending')
+  
+  // 优先处理自动运货任务（包含"自动运货"关键字的任务）
+  let pendingDelivery = pendingDeliveries.value.find(delivery => 
+    delivery.status === 'pending' && delivery.type.includes('自动运货')
+  )
+  
+  // 如果没有自动运货任务，处理普通任务
+  if (!pendingDelivery) {
+    pendingDelivery = pendingDeliveries.value.find(delivery => delivery.status === 'pending')
+  }
   
   if (availableCart && pendingDelivery) {
     availableCart.status = 'moving'
@@ -780,12 +926,18 @@ function updateCartVisual(cart: GridCart) {
   }
 }
 
-// 处理小车到达
+// 修改处理小车到达函数，添加自动运货完成的日志
 function handleCartArrival(cart: GridCart) {
   // 找到对应的送货任务
   const delivery = pendingDeliveries.value.find(d => d.assignedCart === cart.id)
   if (delivery) {
     delivery.status = 'completed'
+    
+    // 如果是自动运货任务，记录完成日志
+    if (delivery.type.includes('自动运货')) {
+      console.log(`✅ 自动运货任务完成: ${delivery.type}`)
+    }
+    
     cart.cargo = null
     // 从待处理列表中移除
     const index = pendingDeliveries.value.indexOf(delivery)

@@ -65,6 +65,8 @@ https://gojs.net/latest/samples/processFlow.html
 ### 11.0  开源图表库方案 D3.js - 最灵活的数据可视化库
 
 
+中文文档: https://d3.nodejs.cn/what-is-d3
+
  plot: 基于d3的图表库  https://observablehq.com/plot/
 
 
