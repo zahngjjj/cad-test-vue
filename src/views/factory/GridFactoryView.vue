@@ -3,7 +3,7 @@
     <!-- 控制面板 -->
     <ControlPanel 
       :is-producing="isProducing"
-      :current-production="currentProduction"
+      :current-production="realTimeProduction"
       :total-factory-produced="totalFactoryProduced"
       :production-duration="productionDuration"
       :workshop-totals="workshopTotals"
@@ -35,7 +35,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted,computed } from 'vue'
 import ControlPanel from '@/components/factory/ControlPanel.vue'
 import FactoryLayout from '@/components/factory/FactoryLayout.vue'
 import { useFactoryProduction } from '@/composables/factory/useFactoryProduction'
@@ -163,6 +163,13 @@ onMounted(() => {
 
 onUnmounted(() => {
   stopAnimation()
+})
+
+// 添加实时产量计算
+const realTimeProduction = computed(() => {
+  return equipmentList.value.reduce((total, equipment) => {
+    return total + equipment.currentProduction
+  }, 0)
 })
 </script>
 

@@ -12,11 +12,11 @@
         </div>
         <div class="status-item">
           <span class="label">当前产量:</span>
-          <span class="value">{{ currentProduction }}</span>
+          <span class="value">{{ Math.round(currentProduction) }}/分钟</span>
         </div>
         <div class="status-item">
           <span class="label">活跃小车:</span>
-          <span class="value">{{ carts.length }}</span>
+          <span class="value">{{ activeCarts }}/{{ carts.length }}</span>
         </div>
         <div class="status-item">
           <span class="label">待送货物:</span>
@@ -40,16 +40,22 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import CartStatusCard from './common/CartStatusCard.vue'
 import type { Cart, Delivery } from '@/types/factory'
 
 // Props
-defineProps<{
+const props = defineProps<{
   isProducing: boolean
   currentProduction: number
   carts: Cart[]
   pendingDeliveries: Delivery[]
 }>()
+
+// 计算活跃小车数量
+const activeCarts = computed(() => {
+  return props.carts.filter(cart => cart.status !== 'idle').length
+})
 </script>
 
 <style scoped>

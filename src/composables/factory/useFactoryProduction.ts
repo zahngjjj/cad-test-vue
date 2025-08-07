@@ -64,6 +64,7 @@ export function useFactoryProduction(updateEquipmentCallback?: () => void) {
   }
   
   // 更新生产数据
+  // 更新生产数据
   function updateProduction() {
     if (!isProducing.value) return
     
@@ -72,10 +73,13 @@ export function useFactoryProduction(updateEquipmentCallback?: () => void) {
       updateEquipmentCallback()
     }
     
-    // 模拟生产逻辑
+    // 计算实时总产量（基于所有设备的当前产量）
+    // 这里需要从设备监控获取实时数据
     const productionIncrement = productionRate.value / 60
-    currentProduction.value = productionRate.value
     totalFactoryProduced.value += productionIncrement
+    
+    // 修改：currentProduction 应该反映当前实际产量，而不是固定值
+    // currentProduction.value = productionRate.value // 删除这行
   }
   
   // 重置累计产量
