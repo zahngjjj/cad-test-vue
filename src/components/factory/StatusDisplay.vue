@@ -54,58 +54,39 @@ defineProps<{
 
 <style scoped>
 .status-section {
-  margin-bottom: 30px;
-  padding: 20px;
+  margin-bottom: 16px; /* 从30px减少到16px */
+  padding: 12px; /* 从20px减少到12px */
   background: #f8f9fa;
-  border-radius: 8px;
+  border-radius: 6px; /* 从8px减少到6px */
   border: 1px solid #e9ecef;
 }
 
 .status-section h3 {
-  margin: 0 0 15px 0;
+  margin: 0 0 10px 0; /* 从15px减少到10px */
   color: #333;
-  font-size: 16px;
+  font-size: 15px; /* 从16px减少到15px */
   font-weight: 600;
 }
 
 .status-grid {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 10px;
+  gap: 6px; /* 从10px减少到6px */
 }
 
 .status-item {
   display: flex;
   justify-content: space-between;
-  padding: 8px 12px;
+  padding: 6px 10px; /* 从8px 12px减少到6px 10px */
   background: white;
-  border-radius: 6px;
+  border-radius: 5px; /* 从6px减少到5px */
   border: 1px solid #e0e0e0;
-}
-
-.label {
-  font-weight: 500;
-  color: #666;
-}
-
-.status.running {
-  color: #4caf50;
-  font-weight: 600;
-}
-
-.status.stopped {
-  color: #f44336;
-  font-weight: 600;
-}
-
-.value {
-  font-weight: 600;
-  color: #333;
+  font-size: 13px; /* 添加较小字体 */
 }
 
 .cart-status-grid {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 6px; /* 从10px减少到6px */
 }
 </style>

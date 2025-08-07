@@ -73,71 +73,40 @@ defineEmits<{
 
 <style scoped>
 .btn-info, .btn-warning, .btn-grid {
-  padding: 10px 20px;
-  margin: 5px;
+  padding: 8px 16px; /* 从10px 20px减少到8px 16px */
+  margin: 3px; /* 从5px减少到3px */
   border: none;
-  border-radius: 6px;
+  border-radius: 5px; /* 从6px减少到5px */
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
-}
-
-.btn-info {
-  background: #2196f3;
-  color: white;
-}
-
-.btn-info:hover {
-  background: #1976d2;
-}
-
-.btn-warning {
-  background: #ff9800;
-  color: white;
-}
-
-.btn-warning:hover {
-  background: #f57c00;
-}
-
-.btn-grid {
-  background: #4caf50;
-  color: white;
-  width: 100%;
-  margin-top: 10px;
-}
-
-.btn-grid:hover:not(:disabled) {
-  background: #45a049;
-}
-
-.btn-grid:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+  font-size: 13px; /* 添加较小字体 */
 }
 
 .cart-controls {
-  margin-top: 15px;
+  margin-top: 10px; /* 从15px减少到10px */
 }
 
 .cart-selector {
   width: 100%;
-  padding: 8px;
-  margin-bottom: 10px;
+  padding: 6px; /* 从8px减少到6px */
+  margin-bottom: 8px; /* 从10px减少到8px */
   border: 1px solid #ddd;
   border-radius: 4px;
+  font-size: 13px; /* 添加较小字体 */
 }
 
 .grid-inputs {
   display: flex;
-  gap: 10px;
-  margin-bottom: 10px;
+  gap: 8px; /* 从10px减少到8px */
+  margin-bottom: 8px; /* 从10px减少到8px */
 }
 
 .grid-input {
   flex: 1;
-  padding: 8px;
+  padding: 6px; /* 从8px减少到6px */
   border: 1px solid #ddd;
   border-radius: 4px;
+  font-size: 13px; /* 添加较小字体 */
 }
 </style>

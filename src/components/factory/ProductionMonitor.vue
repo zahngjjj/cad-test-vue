@@ -72,83 +72,66 @@ defineEmits<{
 </script>
 
 <style scoped>
-/* 样式保持与原组件一致 */
 .factory-summary {
   background: #e3f2fd;
-  padding: 15px;
-  border-radius: 8px;
-  margin-bottom: 20px;
+  padding: 10px; /* 从15px减少到10px */
+  border-radius: 6px; /* 从8px减少到6px */
+  margin-bottom: 12px; /* 从20px减少到12px */
 }
 
 .factory-total, .factory-duration {
   display: flex;
   justify-content: space-between;
-  margin-bottom: 10px;
-}
-
-.factory-label, .duration-label {
-  font-weight: 600;
-  color: #1976d2;
-}
-
-.factory-value, .duration-value {
-  font-weight: bold;
-  color: #0d47a1;
+  margin-bottom: 6px; /* 从10px减少到6px */
+  font-size: 13px; /* 添加较小字体 */
 }
 
 .btn-reset {
   width: 100%;
-  padding: 8px;
+  padding: 6px; /* 从8px减少到6px */
   background: #ff9800;
   color: white;
   border: none;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 12px;
-}
-
-.btn-reset:hover:not(:disabled) {
-  background: #f57c00;
-}
-
-.btn-reset:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+  font-size: 11px; /* 从12px减少到11px */
 }
 
 .workshop-summary {
-  margin-bottom: 20px;
+  margin-bottom: 12px; /* 从20px减少到12px */
 }
 
 .workshop-item {
   background: #f5f5f5;
-  padding: 10px;
-  margin-bottom: 8px;
-  border-radius: 6px;
-  border-left: 4px solid #4caf50;
+  padding: 8px; /* 从10px减少到8px */
+  margin-bottom: 6px; /* 从8px减少到6px */
+  border-radius: 5px; /* 从6px减少到5px */
+  border-left: 3px solid #4caf50; /* 从4px减少到3px */
 }
 
 .workshop-header {
   display: flex;
   justify-content: space-between;
   font-weight: 600;
-  margin-bottom: 5px;
+  margin-bottom: 4px; /* 从5px减少到4px */
+  font-size: 13px; /* 添加较小字体 */
 }
 
 .workshop-details {
   display: flex;
   justify-content: space-between;
-  font-size: 12px;
+  font-size: 11px; /* 从12px减少到11px */
   color: #666;
 }
 
 .equipment-details h4 {
-  margin: 0 0 10px 0;
+  margin: 0 0 8px 0; /* 从10px减少到8px */
   color: #333;
+  font-size: 14px; /* 添加较小字体 */
 }
 
 .equipment-list {
-  max-height: 200px;
+  max-height: 300px; /* 从340px减少到300px */
   overflow-y: auto;
 }
 </style>
