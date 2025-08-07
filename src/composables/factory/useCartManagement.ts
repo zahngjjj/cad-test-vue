@@ -197,23 +197,45 @@ export function useCartManagement() {
   }
   
   // 发送网格指令
+  // 发送网格指令
   function sendGridCommand() {
-    if (!selectedCartId.value || targetGridX.value === undefined || targetGridY.value === undefined) {
-      console.warn('请选择小车并设置目标坐标')
+    // 验证输入
+    if (!selectedCartId.value) {
+      alert('请先选择一辆小车')
+      return
+    }
+    
+    if (targetGridX.value === undefined || targetGridY.value === undefined) {
+      alert('请输入目标网格坐标')
+      return
+    }
+    
+    // 验证坐标范围（假设网格范围是 0-1000）
+    if (targetGridX.value < 0 || targetGridX.value > 1000 || 
+        targetGridY.value < 0 || targetGridY.value > 1000) {
+      alert('网格坐标超出范围 (0-1000)')
       return
     }
     
     const cart = carts.value.find(c => c.id === selectedCartId.value)
     if (!cart) {
-      console.warn('未找到指定小车')
+      alert('未找到指定小车')
       return
     }
     
+    if (cart.status !== 'idle') {
+      alert(`小车 ${cart.id} 当前状态为 ${getCartStatusText(cart.status)}，无法执行新指令`)
+      return
+    }
+    
+    // 执行移动指令
     cart.status = 'moving'
+    cart.cargo = null
     cart.path = [{ x: targetGridX.value, y: targetGridY.value }]
     cart.pathIndex = 0
     
-    console.log(`小车 ${cart.id} 正在前往 (${targetGridX.value}, ${targetGridY.value})`)
+    console.log(`✅ 小车 ${cart.id} 开始前往 (${targetGridX.value}, ${targetGridY.value})`)
+    alert(`小车 ${cart.id} 已接收指令，正在前往目标位置`)
   }
   
   // 获取小车状态文本
