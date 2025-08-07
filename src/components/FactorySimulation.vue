@@ -2591,7 +2591,6 @@ button:disabled {
 }
 
 :deep(.inspection-building:hover) {
-  transform: scale(1.05);
   filter: drop-shadow(0 0 10px rgba(63, 81, 181, 0.6)) url(#buildingShadow);
 }
 
