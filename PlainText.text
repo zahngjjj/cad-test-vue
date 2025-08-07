@@ -1,0 +1,26 @@
+src/
+├── views/
+│   └── factory/
+│       └── GridFactoryView.vue          # 主页面视图
+├── components/
+│   └── factory/
+│       ├── ControlPanel.vue             # 控制面板
+│       ├── ProductionMonitor.vue        # 设备产量监控
+│       ├── CartDispatch.vue             # 小车调度
+│       ├── StatusDisplay.vue            # 实时状态显示
+│       ├── FactoryLayout.vue            # 工厂布局SVG
+│       └── common/
+│           ├── CartStatusCard.vue       # 小车状态卡片
+│           └── EquipmentCard.vue        # 设备卡片
+├── composables/
+│   └── factory/
+│       ├── useFactoryProduction.ts     # 生产逻辑
+│       ├── useCartManagement.ts         # 小车管理
+│       ├── useEquipmentMonitor.ts       # 设备监控
+│       └── useFactoryAnimation.ts       # 动画和渲染
+├── types/
+│   └── factory.ts                       # 类型定义
+└── utils/
+    └── factory/
+        ├── GridCart.ts                  # 小车类
+        └── factoryHelpers.ts           # 工具函数
