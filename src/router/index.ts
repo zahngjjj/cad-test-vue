@@ -19,8 +19,8 @@ const router = createRouter({
     // 可以添加更多路由
     {
       path: '/cad-viewer',
-      name: 'CADViewer', 
-      component: () => import('@/components/CADViewer.vue')
+      name: 'CADViewer',
+      component: () => import('@/components/other/CADViewer.vue')
     }
   ],
 })

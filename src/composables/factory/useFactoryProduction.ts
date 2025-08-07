@@ -1,7 +1,7 @@
 import { ref, computed, onUnmounted } from 'vue'
 import type { Equipment, ProductionStats } from '@/types/factory'
 
-export function useFactoryProduction() {
+export function useFactoryProduction(updateEquipmentCallback?: () => void) {
   // 生产状态
   const isProducing = ref(false)
   const productionRate = ref(50) // 每分钟产量
@@ -67,8 +67,13 @@ export function useFactoryProduction() {
   function updateProduction() {
     if (!isProducing.value) return
     
+    // 调用设备更新
+    if (updateEquipmentCallback) {
+      updateEquipmentCallback()
+    }
+    
     // 模拟生产逻辑
-    const productionIncrement = productionRate.value / 60 // 每秒产量
+    const productionIncrement = productionRate.value / 60
     currentProduction.value = productionRate.value
     totalFactoryProduced.value += productionIncrement
   }

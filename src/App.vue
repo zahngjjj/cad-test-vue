@@ -1,28 +1,11 @@
 <template>
   <div id="app">
-    <!-- <LibreDWGDemo /> -->
-    <!-- <DWGToSVGDemo /> -->
-    <!-- <CADViewer /> -->
-    <!-- <DWG2DViewer/> -->
-    <!-- <CAD3DViewer/> -->
-    <!-- <ProcessFlowDiagram/> -->
-    <!-- <D3ProcessFlow></D3ProcessFlow> -->
-    <!-- <FactorySimulation></FactorySimulation> -->
-    <GridFactoryDemo></GridFactoryDemo>
+    <router-view />
   </div>
 </template>
 
 <script setup lang="ts">
-// import LibreDWGDemo from './components/LibreDWGDemo.vue'
-// import DWGToSVGDemo from './components/DWGToSVGDemo.vue'
-// import CADViewer from './components/CADViewer.vue'
-// import DWG2DViewer from './components/DWG2DViewer.vue'
-// import CAD3DViewer from './components/CAD3DViewer.vue'
-// import ProcessFlowDiagram from './components/ProcessFlowDiagram.vue'
-// import D3ProcessFlow from './components/D3ProcessFlow.vue'
-// import FactorySimulation from './components/FactorySimulation.vue'
-import GridFactoryDemo from './components/GridFactoryDemo.vue'
-
+// 移除所有注释的导入，因为现在使用路由系统
 </script>
 
 <style>

@@ -56,24 +56,97 @@ export function useCartManagement() {
   }
   
   // 派遣小车
+  // 修改派遣小车函数，支持批量派遣
   function deployCart() {
-    // 创建新的配送任务
-    const delivery: Delivery = {
-      id: deliveryIdCounter++,
-      type: '货物',
-      fromGridX: 600,
-      fromGridY: 100,
-      toGridX: 700,
-      toGridY: 500,
-      status: 'pending'
+    // 创建多个配送任务
+    const taskCount = Math.min(3, carts.value.filter(c => c.status === 'idle').length)
+    
+    for (let i = 0; i < taskCount; i++) {
+      const delivery: Delivery = {
+        id: deliveryIdCounter++,
+        type: '货物',
+        fromGridX: 600 + (i * 50), // 不同的起点
+        fromGridY: 100 + (i * 50),
+        toGridX: 700 + (i * 50),   // 不同的终点
+        toGridY: 500 + (i * 50),
+        status: 'pending'
+      }
+      
+      pendingDeliveries.value.push(delivery)
     }
     
-    pendingDeliveries.value.push(delivery)
-    
-    // 尝试自动派遣
-    if (!autoDeployCart()) {
-      console.log('暂无可用小车，任务已加入队列')
+    // 尝试派遣所有可用小车
+    while (autoDeployCart()) {
+      // 继续派遣直到没有可用小车或任务
     }
+  }
+  
+  // 添加持续任务生成函数
+  // 修改 generateContinuousTasks 函数，基于设备产量生成任务
+  function generateContinuousTasks() {
+    const idleCarts = carts.value.filter(c => c.status === 'idle')
+    
+    if (idleCarts.length > 0 && pendingDeliveries.value.length < 2) {
+      // 基于设备位置生成更真实的配送任务
+      const equipmentPositions = [
+        { x: 600, y: 100 }, // 生产线A
+        { x: 800, y: 450 }, // 生产线B
+        { x: 700, y: 500 }, // 包装机
+        { x: 750, y: 220 }  // 质检台
+      ]
+      
+      const warehousePositions = [
+        { x: 200, y: 200 },
+        { x: 300, y: 300 },
+        { x: 400, y: 400 }
+      ]
+      
+      idleCarts.forEach((cart, index) => {
+        if (index < equipmentPositions.length) {
+          const fromPos = equipmentPositions[index]
+          const toPos = warehousePositions[index % warehousePositions.length]
+          
+          const delivery: Delivery = {
+            id: deliveryIdCounter++,
+            type: '成品',
+            fromGridX: fromPos.x,
+            fromGridY: fromPos.y,
+            toGridX: toPos.x,
+            toGridY: toPos.y,
+            status: 'pending'
+          }
+          
+          pendingDeliveries.value.push(delivery)
+          assignCartToDelivery(cart, delivery)
+        }
+      })
+    }
+  }
+  
+  // 修改 updateCartPositions 函数，确保小车完成任务后能继续工作
+  function updateCartPositions() {
+    carts.value.forEach(cart => {
+      if ((cart.status === 'moving' || cart.status === 'returning') && cart.path.length > 0) {
+        const hasMorePath = (cart as GridCart).moveAlongPath()
+        
+        if (!hasMorePath) {
+          // 到达目的地
+          if (cart.status === 'returning') {
+            cart.status = 'idle'
+            cart.cargo = null
+          } else {
+            cart.status = 'idle'
+            cart.cargo = null
+            // 短暂延迟后生成新任务，模拟装卸货时间
+            setTimeout(() => {
+              if (carts.value.filter(c => c.status === 'idle').length >= 2) {
+                generateContinuousTasks()
+              }
+            }, 2000)
+          }
+        }
+      }
+    })
   }
   
   // 分配小车到配送任务
@@ -143,26 +216,6 @@ export function useCartManagement() {
     console.log(`小车 ${cart.id} 正在前往 (${targetGridX.value}, ${targetGridY.value})`)
   }
   
-  // 更新小车位置
-  function updateCartPositions() {
-    carts.value.forEach(cart => {
-      if ((cart.status === 'moving' || cart.status === 'returning') && cart.path.length > 0) {
-        const hasMorePath = (cart as GridCart).moveAlongPath()
-        
-        if (!hasMorePath) {
-          // 到达目的地
-          if (cart.status === 'returning') {
-            cart.status = 'idle'
-          } else {
-            cart.status = 'idle'
-            // 检查是否有待处理的任务
-            autoDeployCart()
-          }
-        }
-      }
-    })
-  }
-  
   // 获取小车状态文本
   function getCartStatusText(status: string): string {
     const statusMap: Record<string, string> = {
@@ -178,21 +231,22 @@ export function useCartManagement() {
   // 初始化
   initializeCarts()
   
+  // 在return语句中添加这两个函数
   return {
-    // 状态
+    // 现有的导出...
     carts,
     pendingDeliveries,
     selectedCartId,
     targetGridX,
     targetGridY,
-    
-    // 方法
     deployCart,
+    updateCartPositions,
     recallAllCarts,
     sendGridCommand,
-    updateCartPositions,
-    getCartStatusText,
+    
+    // 新增导出
     findAvailableCartByPriority,
-    autoDeployCart
+    assignCartToDelivery,
+    generateContinuousTasks
   }
 }

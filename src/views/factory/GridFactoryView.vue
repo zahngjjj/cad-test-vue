@@ -13,9 +13,9 @@
       :selected-cart-id="selectedCartId"
       :target-grid-x="targetGridX"
       :target-grid-y="targetGridY"
-      @start-production="startProduction"
-      @stop-production="stopProduction"
-      @reset-total-production="resetTotalProduction"
+      @start-production="handleStartProduction"
+      @stop-production="handleStopProduction"
+      @reset-total-production="handleResetProduction"
       @deploy-cart="deployCart"
       @recall-all-carts="recallAllCarts"
       @send-grid-command="sendGridCommand"
@@ -46,7 +46,17 @@ import { useFactoryAnimation } from '@/composables/factory/useFactoryAnimation'
 // 工厂布局引用
 const factoryLayoutRef = ref()
 
-// 使用 composables
+// 先初始化设备监控，获取updateEquipmentProduction函数
+const {
+  equipmentList,
+  workshopTotals,
+  startEquipmentProduction,
+  stopEquipmentProduction,
+  updateEquipmentProduction,
+  resetEquipmentProduction
+} = useEquipmentMonitor()
+
+// 然后初始化工厂生产，传入updateEquipmentProduction
 const {
   isProducing,
   currentProduction,
@@ -55,8 +65,10 @@ const {
   startProduction,
   stopProduction,
   resetTotalProduction
-} = useFactoryProduction()
+} = useFactoryProduction(updateEquipmentProduction)
 
+// 其他composables保持不变
+// 更新useCartManagement的解构
 const {
   carts,
   selectedCartId,
@@ -65,18 +77,84 @@ const {
   pendingDeliveries,
   deployCart,
   recallAllCarts,
-  sendGridCommand
+  sendGridCommand,
+  updateCartPositions,
+  findAvailableCartByPriority,
+  assignCartToDelivery,
+  generateContinuousTasks
 } = useCartManagement()
 
-const {
-  equipmentList,
-  workshopTotals
-} = useEquipmentMonitor()
+// 修改生产控制方法
+function handleStartProduction() {
+  startProduction()
+  startEquipmentProduction()
+  
+  // 移除立即派遣小车的逻辑
+  // deployCart() // 删除这行
+  
+  // 启动设备产量监控，当达到100时触发小车
+  const productionCheckInterval = setInterval(() => {
+    if (isProducing.value) {
+      checkEquipmentProductionAndDispatchCarts()
+    } else {
+      clearInterval(productionCheckInterval)
+    }
+  }, 1000) // 每秒检查一次设备产量
+}
+
+// 新增：检查设备产量并派遣小车的函数
+function checkEquipmentProductionAndDispatchCarts() {
+  equipmentList.value.forEach(equipment => {
+    // 当设备总产量达到100的倍数时，派遣小车
+    if (equipment.totalProduced >= 100 && Math.floor(equipment.totalProduced / 100) > Math.floor((equipment.totalProduced - equipment.currentProduction / 60) / 100)) {
+      // 为该设备派遣一辆小车
+      dispatchCartForEquipment(equipment)
+    }
+  })
+}
+
+// 新增：为特定设备派遣小车
+function dispatchCartForEquipment(equipment: any) {
+  const availableCart = findAvailableCartByPriority()
+  if (availableCart) {
+    const warehousePositions = [
+      { x: 200, y: 200 },
+      { x: 300, y: 300 },
+      { x: 400, y: 400 }
+    ]
+    
+    const randomWarehouse = warehousePositions[Math.floor(Math.random() * warehousePositions.length)]
+    
+    const delivery = {
+      id: Date.now(), // 简单的ID生成
+      type: '成品',
+      fromGridX: equipment.gridX,
+      fromGridY: equipment.gridY,
+      toGridX: randomWarehouse.x,
+      toGridY: randomWarehouse.y,
+      status: 'pending'
+    }
+    
+    assignCartToDelivery(availableCart, delivery)
+    console.log(`设备 ${equipment.name} 产量达到100，派遣小车 ${availableCart.id}`)
+  }
+}
+
+function handleStopProduction() {
+  stopProduction()
+  stopEquipmentProduction()
+  recallAllCarts() // 停止生产时召回所有小车
+}
+
+function handleResetProduction() {
+  resetTotalProduction()
+  resetEquipmentProduction()
+}
 
 const {
   startAnimation,
   stopAnimation
-} = useFactoryAnimation(carts, equipmentList)
+} = useFactoryAnimation(carts, equipmentList, updateCartPositions)
 
 // 生命周期
 onMounted(() => {
