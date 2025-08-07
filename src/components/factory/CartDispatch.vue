@@ -2,18 +2,11 @@
   <div class="control-section">
     <h3>🚛 小车调度</h3>
     
-    <!-- 添加状态提示 -->
-    <div v-if="selectedCartId" class="cart-status-info">
-      <span>已选择: {{ selectedCartId }}</span>
-      <span class="cart-current-status">
-        状态: {{ getCurrentCartStatus() }}
-      </span>
-    </div>
-    
-    <!-- 现有的按钮和输入框 -->
+    <!-- 单辆派遣 -->
     <button @click="$emit('deploy-cart')" class="btn-info">
       派遣小车
     </button>
+    
     <button @click="$emit('recall-all-carts')" class="btn-warning">
       召回所有小车
     </button>
@@ -50,7 +43,7 @@
       </div>
       <button 
         @click="$emit('send-grid-command')" 
-        :disabled="!canSendCommand"
+        :disabled="!selectedCartId || targetGridX === undefined || targetGridY === undefined"
         class="btn-grid"
       >
         📍 发送网格指令
@@ -61,47 +54,27 @@
 
 <script setup lang="ts">
 import type { Cart } from '@/types/factory'
-import { computed } from 'vue'
 
-const props = defineProps<{
+// Props
+defineProps<{
   carts: Cart[]
   selectedCartId: string
   targetGridX?: number
   targetGridY?: number
 }>()
 
-// 计算是否可以发送指令
-const canSendCommand = computed(() => {
-  if (!props.selectedCartId || props.targetGridX === undefined || props.targetGridY === undefined) {
-    return false
-  }
-  
-  const cart = props.carts.find(c => c.id === props.selectedCartId)
-  return cart && cart.status === 'idle'
-})
-
-// 获取当前选中小车的状态
-function getCurrentCartStatus() {
-  if (!props.selectedCartId) return ''
-  const cart = props.carts.find(c => c.id === props.selectedCartId)
-  return cart ? cart.status : '未找到'
-}
+// Emits
+defineEmits<{
+  'deploy-cart': []
+  'recall-all-carts': []
+  'send-grid-command': []
+  'update:selected-cart-id': [value: string]
+  'update:target-grid-x': [value: number]
+  'update:target-grid-y': [value: number]
+}>()
 </script>
 
 <style scoped>
-.cart-status-info {
-  background: #f0f8ff;
-  padding: 8px;
-  border-radius: 4px;
-  margin-bottom: 10px;
-  font-size: 12px;
-}
-
-.cart-current-status {
-  margin-left: 10px;
-  color: #666;
-}
-
 .btn-info, .btn-warning, .btn-grid {
   padding: 8px 16px; /* 从10px 20px减少到8px 16px */
   margin: 3px; /* 从5px减少到3px */
