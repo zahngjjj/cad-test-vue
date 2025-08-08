@@ -16,6 +16,11 @@ const props = defineProps<{
   pendingDeliveries: Delivery[]
 }>()
 
+// Emits
+const emit = defineEmits<{
+  'cart-clicked': [cart: Cart]
+}>()
+
 // 组件引用
 const svgRef = ref<SVGElement>()
 const factoryRef = ref<HTMLElement>()
@@ -188,6 +193,11 @@ function createCartElement(cart: Cart, position: {x: number, y: number}) {
   const cartGroup = svg.append('g')
     .attr('class', 'grid-cart')
     .attr('id', `cart-${cart.id}`)
+    .style('cursor', 'pointer')
+    .on('click', function(event) {
+      event.stopPropagation()
+      showCartPhoto(cart, d3.pointer(event, svg.node()))
+    })
   
   // GPS精度圆圈
   cartGroup.append('circle')
@@ -252,7 +262,7 @@ function createCartElement(cart: Cart, position: {x: number, y: number}) {
     .attr('text-anchor', 'middle')
     .attr('font-size', '6px')
     .attr('fill', '#666')
-    .text(`(${cart.gridX}, ${cart.gridY})`)
+    .text(`(${Math.round(cart.gridX)}, ${Math.round(cart.gridY)})`)
   
   // 货物指示器
   cartGroup.append('rect')
@@ -274,6 +284,193 @@ function createCartElement(cart: Cart, position: {x: number, y: number}) {
   }
   
   cartGroup.attr('transform', `translate(${svgPos.x}, ${svgPos.y})`)
+}
+
+// 显示小车照片详情
+function showCartPhoto(cart: Cart, clickPosition: [number, number]) {
+  // 移除已存在的照片详情
+  svg.select('.cart-photo-detail').remove()
+  
+  // 弹框尺寸定义
+  const panelWidth = 200
+  const panelHeight = 160
+  const panelHalfWidth = panelWidth / 2
+  const panelHalfHeight = panelHeight / 2
+  
+  // 获取SVG容器尺寸
+  const svgElement = svg.node() as SVGSVGElement
+  const svgRect = svgElement.getBoundingClientRect()
+  const svgWidth = svgRect.width
+  const svgHeight = svgRect.height
+  
+  // 计算调整后的位置
+  let adjustedX = clickPosition[0]
+  let adjustedY = clickPosition[1]
+  
+  // 边界检测和位置调整
+  // 左边界检测
+  if (adjustedX - panelHalfWidth < 0) {
+    adjustedX = panelHalfWidth + 10 // 留10px边距
+  }
+  
+  // 右边界检测
+  if (adjustedX + panelHalfWidth > svgWidth) {
+    adjustedX = svgWidth - panelHalfWidth - 10 // 留10px边距
+  }
+  
+  // 上边界检测（弹框在点击位置上方显示）
+  if (adjustedY - panelHeight < 0) {
+    adjustedY = panelHeight + 10 // 留10px边距
+  }
+  
+  // 下边界检测
+  if (adjustedY + 40 > svgHeight) { // 40是弹框底部到中心的距离
+    adjustedY = svgHeight - 40 - 10 // 留10px边距
+  }
+  
+  // 创建照片详情组
+  const photoDetail = svg.append('g')
+    .attr('class', 'cart-photo-detail')
+    .attr('transform', `translate(${adjustedX}, ${adjustedY})`)
+  
+  // 背景面板
+  const panel = photoDetail.append('g')
+    .attr('class', 'photo-panel')
+  
+  // 面板背景
+  panel.append('rect')
+    .attr('x', -panelHalfWidth)
+    .attr('y', -120)
+    .attr('width', panelWidth)
+    .attr('height', panelHeight)
+    .attr('fill', 'rgba(255, 255, 255, 0.95)')
+    .attr('stroke', '#2196f3')
+    .attr('stroke-width', 2)
+    .attr('rx', 8)
+    .attr('filter', 'drop-shadow(0 4px 8px rgba(0,0,0,0.2))')
+  
+  // 小车照片
+  if (cart.photo) {
+    panel.append('image')
+      .attr('x', -80)
+      .attr('y', -100)
+      .attr('width', 160)
+      .attr('height', 80)
+      .attr('href', cart.photo)
+      .attr('preserveAspectRatio', 'xMidYMid slice')
+      .style('border-radius', '4px')
+  } else {
+    // 默认照片占位符
+    panel.append('rect')
+      .attr('x', -80)
+      .attr('y', -100)
+      .attr('width', 160)
+      .attr('height', 80)
+      .attr('fill', '#f0f0f0')
+      .attr('stroke', '#ddd')
+      .attr('stroke-width', 1)
+      .attr('rx', 4)
+    
+    panel.append('text')
+      .attr('x', 0)
+      .attr('y', -60)
+      .attr('text-anchor', 'middle')
+      .attr('font-size', '12px')
+      .attr('fill', '#999')
+      .text('📷 暂无照片')
+  }
+  
+  // 小车信息
+  panel.append('text')
+    .attr('x', 0)
+    .attr('y', -5)
+    .attr('text-anchor', 'middle')
+    .attr('font-size', '14px')
+    .attr('font-weight', 'bold')
+    .attr('fill', '#333')
+    .text(`小车 ${cart.id}`)
+  
+  panel.append('text')
+    .attr('x', 0)
+    .attr('y', 15)
+    .attr('text-anchor', 'middle')
+    .attr('font-size', '10px')
+    .attr('fill', '#666')
+    .text(`位置: (${Math.round(cart.gridX)}, ${Math.round(cart.gridY)})`)
+  
+  panel.append('text')
+    .attr('x', 0)
+    .attr('y', 30)
+    .attr('text-anchor', 'middle')
+    .attr('font-size', '10px')
+    .attr('fill', '#666')
+    .text(`状态: ${getStatusText(cart.status)}`)
+  
+  // 关闭按钮
+  const closeButton = panel.append('g')
+    .attr('class', 'close-button')
+    .style('cursor', 'pointer')
+    .on('click', function(event) {
+      event.stopPropagation()
+      hideCartPhoto()
+    })
+  
+  closeButton.append('circle')
+    .attr('cx', 85)
+    .attr('cy', -105)
+    .attr('r', 12)
+    .attr('fill', '#ff4444')
+    .attr('stroke', '#fff')
+    .attr('stroke-width', 2)
+  
+  closeButton.append('text')
+    .attr('x', 85)
+    .attr('y', -105)
+    .attr('text-anchor', 'middle')
+    .attr('dominant-baseline', 'middle')
+    .attr('font-size', '12px')
+    .attr('font-weight', 'bold')
+    .attr('fill', 'white')
+    .text('×')
+  
+  // 3秒后自动关闭
+  setTimeout(() => {
+    hideCartPhoto()
+  }, 3000)
+}
+
+// 隐藏小车照片详情
+function hideCartPhoto() {
+  svg.select('.cart-photo-detail')
+    .transition()
+    .duration(300)
+    .style('opacity', 0)
+    .remove()
+}
+
+// 获取状态文本
+function getStatusText(status: string): string {
+  const statusMap: Record<string, string> = {
+    'idle': '空闲',
+    'moving': '移动中',
+    'loading': '装载中',
+    'delivering': '配送中',
+    'returning': '返回中'
+  }
+  return statusMap[status] || status
+}
+
+// 点击SVG空白区域关闭照片详情
+function initializeSVG() {
+  // ... existing code ...
+  
+  // 添加点击事件监听
+  svg.on('click', function(event) {
+    // 如果点击的不是小车，则关闭照片详情
+    if (!event.target.closest('.grid-cart')) {
+      hideCartPhoto()
+    }
+  })
 }
 
 // 添加网格坐标显示
@@ -316,4 +513,6 @@ watch(() => props.equipmentList, () => {
   height: 100%;
   display: block;
 }
+
+/* SVG内部样式通过D3设置 */
 </style>

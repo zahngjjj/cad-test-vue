@@ -14,18 +14,48 @@ export function useCartManagement() {
     let deliveryIdCounter = 1
 
     // 初始化小车
+    // 初始化小车数据
     function initializeCarts() {
-        const startPositions = [
-            { x: 100, y: 100 },
-            { x: 140, y: 100 },
-            { x: 180, y: 100 }
+        const cartData: Cart[] = [
+            {
+                id: 'cart-001',
+                gridX: 100,
+                gridY: 100,
+                status: 'idle',
+                cargo: null,
+                speed: 50,
+                path: [],
+                pathIndex: 0,
+                photo: '/src/static/image/car.jpg', // 小车照片
+                remarks: '这是1号小车，性能良好'
+            },
+            {
+                id: 'cart-002',
+                gridX: 140,
+                gridY: 100,
+                status: 'idle',
+                cargo: null,
+                speed: 50,
+                path: [],
+                pathIndex: 0,
+                photo: '/src/static/image/car2.jpg', // 小车照片
+                remarks: '这是2号小车，刚完成维护'
+            },
+            {
+                id: 'cart-003',
+                gridX: 180,
+                gridY: 100,
+                status: 'idle',
+                cargo: null,
+                speed: 50,
+                path: [],
+                pathIndex: 0,
+                photo: '/src/static/image/car3.jpg', // 小车照片
+                remarks: '这是3号小车，运行稳定'
+            }
         ]
 
-        carts.value = []
-        for (let i = 0; i < 3; i++) {
-            const cart = new GridCart(`cart-${i + 1}`, startPositions[i].x, startPositions[i].y)
-            carts.value.push(cart)
-        }
+        carts.value = cartData
     }
 
     // 按优先级查找可用小车
@@ -169,7 +199,7 @@ export function useCartManagement() {
         carts.value.forEach(cart => {
             if ((cart.status === 'moving' || cart.status === 'returning') && cart.path.length > 0) {
                 const hasMorePath = (cart as GridCart).moveAlongPath()
-    
+
                 if (!hasMorePath) {
                     // 到达目的地
                     if (cart.status === 'returning') {
@@ -179,7 +209,7 @@ export function useCartManagement() {
                         cart.status = 'idle'
                         const previousCargo = cart.cargo
                         cart.cargo = null
-                        
+
                         // 只有执行配送任务的小车才触发持续任务生成
                         // 通过网格指令移动的小车不应该触发
                         if (previousCargo && previousCargo.type !== 'manual') {
