@@ -16,12 +16,6 @@ const router = createRouter({
         title: '智能工厂仿真系统'
       }
     },
-    // 可以添加更多路由
-    {
-      path: '/cad-viewer',
-      name: 'CADViewer',
-      component: () => import('@/components/other/CADViewer.vue')
-    }
   ],
 })
 

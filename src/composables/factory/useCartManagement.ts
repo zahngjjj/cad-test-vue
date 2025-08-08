@@ -16,51 +16,31 @@ export function useCartManagement() {
     // 初始化小车
     // 初始化小车数据
     function initializeCarts() {
-        const cartData: Cart[] = [
-            {
-                id: 'cart-001',
-                gridX: 100,
-                gridY: 100,
-                status: 'idle',
-                cargo: null,
-                speed: 50,
-                path: [],
-                pathIndex: 0,
-                photo: '/src/static/image/car.jpg', // 小车照片
-                remarks: '这是1号小车，性能良好'
-            },
-            {
-                id: 'cart-002',
-                gridX: 140,
-                gridY: 100,
-                status: 'idle',
-                cargo: null,
-                speed: 50,
-                path: [],
-                pathIndex: 0,
-                photo: '/src/static/image/car2.jpg', // 小车照片
-                remarks: '这是2号小车，刚完成维护'
-            },
-            {
-                id: 'cart-003',
-                gridX: 180,
-                gridY: 100,
-                status: 'idle',
-                cargo: null,
-                speed: 50,
-                path: [],
-                pathIndex: 0,
-                photo: '/src/static/image/car3.jpg', // 小车照片
-                remarks: '这是3号小车，运行稳定'
-            }
+        const cartInstances: GridCart[] = [
+            new GridCart('cart-001', 100, 100),
+            new GridCart('cart-002', 140, 100),
+            new GridCart('cart-003', 180, 100)
         ]
 
-        carts.value = cartData
+        // 设置额外属性
+        cartInstances[0].speed = 1  // 调整速度为合适的值
+        cartInstances[0].photo = '/src/static/image/car.jpg'
+        cartInstances[0].remarks = '这是1号小车，性能良好'
+
+        cartInstances[1].speed = 1
+        cartInstances[1].photo = '/src/static/image/car2.jpg'
+        cartInstances[1].remarks = '这是2号小车，刚完成维护'
+
+        cartInstances[2].speed = 1
+        cartInstances[2].photo = '/src/static/image/car3.jpg'
+        cartInstances[2].remarks = '这是3号小车，运行稳定'
+
+        carts.value = cartInstances
     }
 
     // 按优先级查找可用小车
     function findAvailableCartByPriority(): Cart | null {
-        const priorityOrder = ['cart-1', 'cart-2', 'cart-3']
+        const priorityOrder = ['cart-001', 'cart-002', 'cart-003']
 
         for (const cartId of priorityOrder) {
             const cart = carts.value.find(c => c.id === cartId && c.status === 'idle')

@@ -105,9 +105,13 @@ function handleStartProduction() {
 // 新增：检查设备产量并派遣小车的函数
 function checkEquipmentProductionAndDispatchCarts() {
   equipmentList.value.forEach(equipment => {
-    // 当设备总产量达到100的倍数时，派遣小车
-    if (equipment.totalProduced >= 100 && Math.floor(equipment.totalProduced / 100) > Math.floor((equipment.totalProduced - equipment.currentProduction / 60) / 100)) {
-      // 为该设备派遣一辆小车
+    // 简化判断逻辑：每当设备总产量达到100的倍数时派遣小车
+    const currentBatch = Math.floor(equipment.totalProduced / 100)
+    const previousBatch = Math.floor((equipment.totalProduced - 1) / 100)
+    
+    // 当跨越100的倍数时触发派遣
+    if (currentBatch > previousBatch && equipment.totalProduced >= 100) {
+      console.log(`设备 ${equipment.name} 产量从 ${equipment.totalProduced - 1} 增加到 ${equipment.totalProduced}，触发小车派遣`)
       dispatchCartForEquipment(equipment)
     }
   })

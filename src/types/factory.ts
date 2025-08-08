@@ -8,8 +8,9 @@ export interface Cart {
   speed: number
   path: GridPosition[]
   pathIndex: number
-  element?: any,
-  photo?: string,  // 小车照片URL
+  element?: any
+  // 新增字段
+  photo?: string  // 小车照片URL
   remarks?: string // 备注信息
 }
 

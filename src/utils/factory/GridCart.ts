@@ -10,6 +10,8 @@ export class GridCart implements Cart {
   path: GridPosition[]
   pathIndex: number
   element?: any
+  photo?: string    // 新增
+  remarks?: string  // 新增
   
   constructor(id: string, gridX: number, gridY: number) {
     this.id = id
@@ -20,6 +22,8 @@ export class GridCart implements Cart {
     this.speed = 1 // 格/秒
     this.path = []
     this.pathIndex = 0
+    this.photo = undefined
+    this.remarks = undefined
   }
   
   // 移动到目标网格位置
