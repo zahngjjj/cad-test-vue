@@ -163,12 +163,13 @@ export function useCartManagement() {
         }
     }
 
-    // 修改 updateCartPositions 函数，确保小车完成任务后能继续工作
+    // 修改 updateCartPositions 函数
+    // 修改 updateCartPositions 函数
     function updateCartPositions() {
         carts.value.forEach(cart => {
             if ((cart.status === 'moving' || cart.status === 'returning') && cart.path.length > 0) {
                 const hasMorePath = (cart as GridCart).moveAlongPath()
-
+    
                 if (!hasMorePath) {
                     // 到达目的地
                     if (cart.status === 'returning') {
@@ -176,13 +177,19 @@ export function useCartManagement() {
                         cart.cargo = null
                     } else {
                         cart.status = 'idle'
+                        const previousCargo = cart.cargo
                         cart.cargo = null
-                        // 短暂延迟后生成新任务，模拟装卸货时间
-                        setTimeout(() => {
-                            if (carts.value.filter(c => c.status === 'idle').length >= 2) {
-                                generateContinuousTasks()
-                            }
-                        }, 2000)
+                        
+                        // 只有执行配送任务的小车才触发持续任务生成
+                        // 通过网格指令移动的小车不应该触发
+                        if (previousCargo && previousCargo.type !== 'manual') {
+                            // 短暂延迟后生成新任务，模拟装卸货时间
+                            setTimeout(() => {
+                                if (carts.value.filter(c => c.status === 'idle').length >= 2) {
+                                    generateContinuousTasks()
+                                }
+                            }, 2000)
+                        }
                     }
                 }
             }
@@ -270,7 +277,11 @@ export function useCartManagement() {
 
         // 执行移动指令
         cart.status = 'moving'
-        cart.cargo = null
+        // 为手动指令添加特殊标识
+        cart.cargo = {
+            id: `manual-${Date.now()}`,
+            type: 'manual'  // 标识这是手动指令
+        }
         cart.path = [{ x: targetGridX.value, y: targetGridY.value }]
         cart.pathIndex = 0
 
